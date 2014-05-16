@@ -9,118 +9,84 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/array.hpp>
 #include <utility>
+#include <list>
 #include <jsoncons/json.hpp>
 
 using boost::asio::ip::tcp;
 
+class hwo_session;
+typedef boost::shared_ptr<hwo_session> hwo_session_ptr;
+
+class hwo_race : public boost::enable_shared_from_this<hwo_race> {
+public:
+	hwo_race();
+	~hwo_race();
+
+	int join(hwo_session_ptr session);
+
+private:
+	std::list<hwo_session_ptr> sessions_;
+};
+
+typedef boost::shared_ptr<hwo_race> hwo_race_ptr;
+
 class hwo_race_manager {
 public:
-	static hwo_race_manager getInstance() {
-		if (!instance)
-			instance = new hwo_race_manager();
-
+	static hwo_race_manager &Instance() {
+		static hwo_race_manager instance;
 		return instance;
 	}
 
-private:
-	static hwo_race_manager *instance = 0;
+	hwo_race_ptr hwo_session_join(hwo_session_ptr hwo_session) {
+		hwo_race_ptr new_race(new hwo_race);
+		new_race->join(hwo_session);
+		racelist_.push_back(new_race);
+		return new_race;
+	}
 
+private:
+
+	std::list<hwo_race_ptr> racelist_;
+
+	hwo_race_manager() {
+		racelist_.resize(0);
+	}
 	~hwo_race_manager() {
-		if (instance)
-			delete instance;
-		instance = 0;
+		for (auto race : racelist_) {
+			race.reset();
+		}
 	}
 };
 
-class hwo_race {
+class hwo_session : public boost::enable_shared_from_this<hwo_session> {
 public:
-	hwo_race() {}
-	~hwo_race() {}
-
-	int join(boost::shared_ptr<session> session) {
-		
-	}
-
-private:
-
-};
-
-class session : public boost::enable_shared_from_this<session>{
-public:
-	session(boost::asio::io_service& io_service) : socket_(io_service) {
-	}
+	hwo_session(boost::asio::io_service& io_service) : socket_(io_service) {}
+	~hwo_session();
 
 	tcp::socket& socket() {
 		return socket_;
 	}
 
-	void start() {
-		//data_ = "hello world!\n";
-		//boost::system::error_code ignored_error;
-		//boost::asio::write(socket_, boost::asio::buffer(data_), boost::asio::transfer_all(), ignored_error);
-		//boost::asio::read(socket_, boost::asio::buffer(data_, max_length));
-		boost::asio::async_read(socket_, boost::asio::buffer(buffer_), 
-			boost::bind(&session::handle_read, shared_from_this(), 
-				boost::asio::placeholders::error, 
-				boost::asio::placeholders::bytes_transferred ));
-
-		//boost::asio::async_write(socket_, boost::asio::buffer(data_),
-		//		boost::bind(&session::handle_write, shared_from_this(),
-		//		boost::asio::placeholders::error,
-		//		boost::asio::placeholders::bytes_transferred));
-	}
+	void start(hwo_race_ptr race);
 
 private:
-	void handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
-		if (error) {
-			std::cout << "handle_write error:" << error << std::endl;
-		}
-	}
+	hwo_race_ptr race_;
 
-	void handle_read(const boost::system::error_code& error, size_t bytes_transferred) {
-		if (!error) {
-			std::cout << "bytes_transferred:" << bytes_transferred << std::endl;
-			for (int i=0; i<bytes_transferred; i++) {
-				buffer_[i]++;
-			}
-
-			boost::asio::async_write(socket_, boost::asio::buffer(buffer_),
-				boost::bind(&session::handle_write, shared_from_this(),
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
-
-			boost::asio::async_read(socket_, boost::asio::buffer(buffer_), 
-				boost::bind(&session::handle_read, shared_from_this(), 
-					boost::asio::placeholders::error, 
-					boost::asio::placeholders::bytes_transferred ));
-		} else {
-			std::cout << "handle_read error:" << error << std::endl;
-		}
-	}
+	void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
+	void handle_read(const boost::system::error_code& error, size_t bytes_transferred);
 
 	tcp::socket socket_;
-	enum { max_length = 1024 };
-	//std::string data_;
-	boost::array<char, 1> buffer_;
+	boost::asio::streambuf buffer_;
 };
 
 class hwo_server {
 public:
-	hwo_server(boost::asio::io_service& io_service, int port) : io_service_(io_service), acceptor_(io_service, tcp::endpoint(tcp::v4(), port)) {
+	hwo_server(boost::asio::io_service& io_service, int port) : io_service_(io_service), 
+		acceptor_(io_service, tcp::endpoint(tcp::v4(), port)) {
 		start_accept();
 	}
-	void start_accept() {
-		boost::shared_ptr<session> new_session(new session(io_service_));
-
-		acceptor_.async_accept(new_session->socket(), boost::bind(&hwo_server::handle_accept, this, new_session, boost::asio::placeholders::error));
-	}
-	void handle_accept(boost::shared_ptr<session> s, const boost::system::error_code& error) {
-		if (!error) {
-			s->start();
-		}
-
-		start_accept();
-	}
+	void start_accept();
+	void handle_accept(hwo_session_ptr s, const boost::system::error_code& error);
 
 private:
 	boost::asio::io_service& io_service_;
