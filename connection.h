@@ -7,10 +7,43 @@
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/array.hpp>
 #include <utility>
 #include <jsoncons/json.hpp>
 
 using boost::asio::ip::tcp;
+
+class hwo_race_manager {
+public:
+	static hwo_race_manager getInstance() {
+		if (!instance)
+			instance = new hwo_race_manager();
+
+		return instance;
+	}
+
+private:
+	static hwo_race_manager *instance = 0;
+
+	~hwo_race_manager() {
+		if (instance)
+			delete instance;
+		instance = 0;
+	}
+};
+
+class hwo_race {
+public:
+	hwo_race() {}
+	~hwo_race() {}
+
+	int join(boost::shared_ptr<session> session) {
+		
+	}
+
+private:
+
+};
 
 class session : public boost::enable_shared_from_this<session>{
 public:
@@ -26,7 +59,7 @@ public:
 		//boost::system::error_code ignored_error;
 		//boost::asio::write(socket_, boost::asio::buffer(data_), boost::asio::transfer_all(), ignored_error);
 		//boost::asio::read(socket_, boost::asio::buffer(data_, max_length));
-		boost::asio::async_read(socket_, boost::asio::buffer(buffer_, max_length), 
+		boost::asio::async_read(socket_, boost::asio::buffer(buffer_), 
 			boost::bind(&session::handle_read, shared_from_this(), 
 				boost::asio::placeholders::error, 
 				boost::asio::placeholders::bytes_transferred ));
@@ -51,12 +84,12 @@ private:
 				buffer_[i]++;
 			}
 
-			boost::asio::async_write(socket_, boost::asio::buffer(buffer_, bytes_transferred),
+			boost::asio::async_write(socket_, boost::asio::buffer(buffer_),
 				boost::bind(&session::handle_write, shared_from_this(),
 					boost::asio::placeholders::error,
 					boost::asio::placeholders::bytes_transferred));
 
-			boost::asio::async_read(socket_, boost::asio::buffer(buffer_, max_length), 
+			boost::asio::async_read(socket_, boost::asio::buffer(buffer_), 
 				boost::bind(&session::handle_read, shared_from_this(), 
 					boost::asio::placeholders::error, 
 					boost::asio::placeholders::bytes_transferred ));
@@ -68,7 +101,7 @@ private:
 	tcp::socket socket_;
 	enum { max_length = 1024 };
 	//std::string data_;
-	char buffer_[max_length];
+	boost::array<char, 1> buffer_;
 };
 
 class hwo_server {
