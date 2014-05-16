@@ -1,4 +1,4 @@
 #!/bin/bash
 
-g++ main.cpp protocol.cpp connection.cpp game_logic.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l pthread
+g++ main.cpp protocol.cpp connection.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l pthread
 

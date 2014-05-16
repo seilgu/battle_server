@@ -1,5 +1,4 @@
 #include "protocol.h"
-#include "game_logic.h"
 
 namespace hwo_protocol
 {
