@@ -53,7 +53,7 @@ public:
 		return socket_;
 	}
 
-	int wait_for_join(std::string &racename, int &maxPlayers);
+	int wait_for_join(std::string& name, std::string& key, std::string &racename, int &maxPlayers);
 	void run();
 
 	jsoncons::json receive_request(boost::system::error_code& error);
@@ -71,7 +71,6 @@ private:
 
 	void check_deadline();
 
-	boost::asio::io_service *pio_service_;
 	tcp::socket socket_;
 	boost::asio::streambuf buffer_;
 };
@@ -85,35 +84,6 @@ public:
 
 	int hwo_session_join(hwo_session_ptr hwo_session) {
 		mutex_.lock();
-
-		/*std::string racename;
-		int maxPlayers;
-		
-		if (hwo_session->wait_for_join(racename, maxPlayers)) {
-			
-			hwo_race_ptr qrace(query_race(racename));
-
-			if ( qrace != nullptr ) {
-				if ( maxPlayers != qrace->maxPlayers() ) {
-					std::cout << "numPlayers incorrect" << std::endl;
-					hwo_session->terminate("numPlayers does not match");
-				} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
-					qrace->join(hwo_session);
-				} else {	// race already full
-					std::cout << "race full" << std::endl;
-					hwo_session->terminate("race already full");
-				}
-			} else {
-				std::cout << "creating new race" << std::endl;
-				hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
-				nrace->join(hwo_session);
-				racelist_.push_back(nrace);
-			}
-		} else {
-			std::cout << "protocol fail" << std::endl;
-			hwo_session->terminate("protocol failed");
-		}*/
-
 		waitlist_.push_back(hwo_session);
 		mutex_.unlock();
 		return 1;
@@ -129,15 +99,14 @@ public:
 
 	void run() {
 		while (1) {
-			std::cout << "l" << std::endl;
 			mutex_.lock();
-			std::cout << waitlist_.size() << std::endl;
 			for (auto &s : waitlist_) {
-				std::string racename;
+
+				std::string name, key, racename;
 				int maxPlayers;
-				std::cout << "B" << std::endl;
-				if (s->wait_for_join(racename, maxPlayers)) {
-					std::cout << "b" << std::endl;
+
+				if (s->wait_for_join(name, key, racename, maxPlayers)) {
+					// if (racename == "") ...
 					hwo_race_ptr qrace(query_race(racename));
 					if ( qrace != nullptr ) {
 						if ( maxPlayers != qrace->maxPlayers() ) {

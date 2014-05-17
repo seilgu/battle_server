@@ -47,7 +47,7 @@ int hwo_race::join(hwo_session_ptr session) {
 /** hwo_session **/
 
 hwo_session::hwo_session(boost::asio::io_service& io_service)
-	: pio_service_(&io_service), socket_(io_service), deadline_(io_service) {
+	: socket_(io_service), deadline_(io_service) {
 	buffer_.prepare(8192);
 }
 hwo_session::~hwo_session() {
@@ -76,20 +76,20 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	buffer_.consume(buffer_.size());
 
 	size_t bytes_transferred;
-	boost::system::error_code ec = boost::asio::error::would_block;
+	error = boost::asio::error::would_block;
 
 	boost::asio::async_read_until(socket_, buffer_, "\n", 
-			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &ec, &bytes_transferred ));
+			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &error, &bytes_transferred ));
 	
 	deadline_.expires_from_now(boost::posix_time::seconds(2));
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 	
-	do pio_service_->run_one(); while (ec == boost::asio::error::would_block);
+	do {
+		boost::this_thread::sleep( boost::posix_time::milliseconds(10) );
+	} while (error == boost::asio::error::would_block);
 
-	std::cout << "got it" << std::endl;
-
-	if ( ec || !socket_.is_open() ) {
-		std::cout << ec.message() << std::endl;
+	if ( error || !socket_.is_open() ) {
+		std::cout << error.message() << std::endl;
 		return jsoncons::json();
 	}
 
@@ -119,33 +119,46 @@ void hwo_session::send_response(const std::vector<jsoncons::json>& msgs) {
 
 void hwo_session::check_deadline() {
 	if (deadline_.expires_at() <= deadline_timer::traits_type::now()) {
-		terminate("2 seconds");
+		terminate("exceeded 2 seconds");
 		deadline_.expires_at(boost::posix_time::pos_infin);
 	}
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 }
 
-int hwo_session::wait_for_join(std::string &racename, int &maxPlayers) {
+int hwo_session::wait_for_join(std::string& name, std::string& key, std::string &racename, int &maxPlayers) {
 	boost::system::error_code error;
 	jsoncons::json request = receive_request(error);
 
 	if (!error) {
-		std::cout << request << std::endl;
+		std::cout << "request received: " << request << std::endl;
 	}
 
 	if (request.has_member("msgType") && request["msgType"].as<std::string>() == "joinRace") {
+		if (!request.has_member("data") || !request["data"].has_member("botId") ) {
+			terminate("no data/botId fields");
+			return 0;
+		}
+		jsoncons::json &data = request["data"];
+		jsoncons::json &botId = data["botId"];
 
-		std::cout << "yay!" << std::endl;
+		if (botId.has_member("name"))	name = botId["name"].as<std::string>();
+		else {
+			terminate("no name field"); return 0;
+		}
 
-		if (request.has_member("raceName")) 	racename = request["raceName"].as<std::string>();
+		if (botId.has_member("key"))		key = botId["key"].as<std::string>();
+		else {
+			terminate("no key specified"); return 0;
+		}
+
+		if (data.has_member("raceName")) 	racename = data["raceName"].as<std::string>();
 		else									racename = "";
 
-		if (request.has_member("numPlayers"))   maxPlayers = request["numPlayers"].as<int>();
+		if (data.has_member("numPlayers"))   maxPlayers = data["numPlayers"].as<int>();
 		else									maxPlayers = 1;
 
 		if (maxPlayers <= 0) std::cout << "nPlayers <= 0 !" << std::endl;
 
-		std::cout << "racename : " << racename << " numPlayers : " << maxPlayers << std::endl;
 		return 1;
 
 	} else {
@@ -155,11 +168,7 @@ int hwo_session::wait_for_join(std::string &racename, int &maxPlayers) {
 }
 
 void hwo_session::run() {
-	//race_ = race;
-	/*boost::asio::async_read_until(socket_, buffer_, "\n", 
-		boost::bind(&hwo_session::handle_read, shared_from_this(), 
-			boost::asio::placeholders::error, 
-			boost::asio::placeholders::bytes_transferred ));*/
+
 }
 
 void hwo_session::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
@@ -171,6 +180,8 @@ void hwo_session::handle_write(const boost::system::error_code& error, size_t by
 
 void hwo_session::handle_read(const boost::system::error_code& error, size_t bytes_transferred, 
 	boost::system::error_code* out_error, size_t* out_bytes_transferred) {
+
+	std::cout << "i read something " << error.message() << std::endl;
 
 	deadline_.expires_at(boost::posix_time::pos_infin);
 
