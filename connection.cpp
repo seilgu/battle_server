@@ -55,14 +55,17 @@ hwo_session::~hwo_session() {
 }
 
 void hwo_session::terminate(std::string reason) {
-	std::ostream os(&buffer_);
-	os << reason << std::endl;
 
-	try {
-		boost::asio::async_write(socket_, buffer_, boost::bind(&hwo_session::handle_write, this, 
-			boost::asio::placeholders::error, 
-			boost::asio::placeholders::bytes_transferred ));
-	} catch (std::exception &e) {
+	if (socket_.is_open()) {
+		std::ostream os(&buffer_);
+		os << reason << std::endl;
+
+		try {
+			boost::asio::async_write(socket_, buffer_, boost::bind(&hwo_session::handle_write, this, 
+				boost::asio::placeholders::error, 
+				boost::asio::placeholders::bytes_transferred ));
+		} catch (std::exception &e) {
+		}
 	}
 
 	socket_.close();
@@ -83,8 +86,10 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	
 	do pio_service_->run_one(); while (ec == boost::asio::error::would_block);
 
+	std::cout << "got it" << std::endl;
+
 	if ( ec || !socket_.is_open() ) {
-		std::cout << error.message() << std::endl;
+		std::cout << ec.message() << std::endl;
 		return jsoncons::json();
 	}
 

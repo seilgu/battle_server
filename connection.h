@@ -85,9 +85,35 @@ public:
 
 	int hwo_session_join(hwo_session_ptr hwo_session) {
 		mutex_.lock();
-		std::string racename;
+
+		/*std::string racename;
 		int maxPlayers;
-		hwo_session->wait_for_join(racename, maxPlayers);
+		
+		if (hwo_session->wait_for_join(racename, maxPlayers)) {
+			
+			hwo_race_ptr qrace(query_race(racename));
+
+			if ( qrace != nullptr ) {
+				if ( maxPlayers != qrace->maxPlayers() ) {
+					std::cout << "numPlayers incorrect" << std::endl;
+					hwo_session->terminate("numPlayers does not match");
+				} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
+					qrace->join(hwo_session);
+				} else {	// race already full
+					std::cout << "race full" << std::endl;
+					hwo_session->terminate("race already full");
+				}
+			} else {
+				std::cout << "creating new race" << std::endl;
+				hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
+				nrace->join(hwo_session);
+				racelist_.push_back(nrace);
+			}
+		} else {
+			std::cout << "protocol fail" << std::endl;
+			hwo_session->terminate("protocol failed");
+		}*/
+
 		waitlist_.push_back(hwo_session);
 		mutex_.unlock();
 		return 1;
@@ -102,7 +128,6 @@ public:
 	}
 
 	void run() {
-		return;
 		while (1) {
 			std::cout << "l" << std::endl;
 			mutex_.lock();
@@ -145,7 +170,7 @@ public:
 			mutex_.unlock();
 
 			boost::this_thread::sleep( boost::posix_time::milliseconds(10) );
-		}	
+		}
 	}
 
 private:
