@@ -27,6 +27,7 @@ public:
 	hwo_race(std::string racename, int maxPlayers);
 	~hwo_race();
 
+	void start();
 	void run();
 
 	int join(hwo_session_ptr session);
@@ -36,9 +37,10 @@ public:
 
 private:
 	std::list<hwo_session_ptr> sessions_;
+	boost::thread race_thread_;
+	bool thread_running_;
 
 	std::string racename_;
-	int nPlayers_;
 	int maxPlayers_;
 };
 
@@ -62,12 +64,12 @@ public:
 	void terminate(std::string reason);
 
 private:
-	hwo_race_ptr race_;
+	//hwo_race_ptr race_;
 	deadline_timer deadline_;
 
 	void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
 	void handle_read(const boost::system::error_code& error, size_t bytes_transferred, 
-		boost::system::error_code* out_error, size_t* out_bytes_transferred);
+		boost::system::error_code *out_error, 	size_t *out_bytes_transferred);
 
 	void check_deadline();
 
@@ -97,43 +99,53 @@ public:
 		return nullptr;
 	}
 
+	hwo_race_ptr set_up_race(hwo_session_ptr s) {
+
+		std::string name, key, racename;
+		int maxPlayers;
+
+		if (s->wait_for_join(name, key, racename, maxPlayers)) {
+
+			// if (racename == "") ... 
+			hwo_race_ptr qrace = query_race(racename);
+			if ( qrace != nullptr ) {
+				if ( maxPlayers != qrace->maxPlayers() ) {
+					s->terminate("numPlayers does not match");
+					return nullptr;
+				} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
+					qrace->join(s);
+					return qrace;
+				} else {	// race already full
+					std::cout << "race full" << std::endl;
+					s->terminate("race already full");
+					return nullptr;
+				}
+			} else {
+				std::cout << "creating new race" << std::endl;
+				hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
+				nrace->join(s);
+				racelist_.push_back(nrace);
+				return nrace;
+			}
+		} else {
+			std::cout << "protocol fail" << std::endl;
+			s->terminate("protocol failed");
+			return nullptr;
+		}
+
+	}
+
 	void run() {
 		while (1) {
 			mutex_.lock();
 			for (auto &s : waitlist_) {
-
-				std::string name, key, racename;
-				int maxPlayers;
-
-				if (s->wait_for_join(name, key, racename, maxPlayers)) {
-					// if (racename == "") ...
-					hwo_race_ptr qrace(query_race(racename));
-					if ( qrace != nullptr ) {
-						if ( maxPlayers != qrace->maxPlayers() ) {
-							std::cout << "numPlayers incorrect" << std::endl;
-							s->terminate("numPlayers does not match");
-							waitlist_.remove(s);
-						} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
-							qrace->join(s);
-							waitlist_.remove(s);
-						} else {	// race already full
-							std::cout << "race full" << std::endl;
-							s->terminate("race already full");
-							waitlist_.remove(s);
-						}
-					} else {
-						std::cout << "creating new race" << std::endl;
-						hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
-						nrace->join(s);
-						racelist_.push_back(nrace);
-						waitlist_.remove(s);
-					}
-				} else {
-					std::cout << "protocol fail" << std::endl;
-					s->terminate("protocol failed");
-					waitlist_.remove(s);
+				hwo_race_ptr prace = set_up_race(s);
+				
+				if (prace->nPlayers() == prace->maxPlayers()) {
+					prace->start();
 				}
 
+				waitlist_.remove(s);
 				break;
 			}
 			mutex_.unlock();
