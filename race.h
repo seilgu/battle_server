@@ -4,6 +4,7 @@
 #include "protocol.h"
 #include "connection.h"
 
+#include "simulation.h"
 
 class hwo_race : public boost::enable_shared_from_this<hwo_race> {
 public:
@@ -25,6 +26,8 @@ private:
 
 	std::string racename_;
 	int maxPlayers_;
+
+	simulation engine;
 };
 
 

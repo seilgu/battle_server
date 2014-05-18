@@ -42,9 +42,14 @@ int hwo_race::join(hwo_session_ptr session) {
 void hwo_race::start() {
 	thread_running_ = true;
 	race_thread_ = boost::thread(&hwo_race::run, this);
+
+	// setup engine
+	engine.reset();
 }
 
 void hwo_race::run() {
+	// simulation starts
+
 	int tick = 0;
 	while (thread_running_) {
 		for (auto &s : sessions_) {
