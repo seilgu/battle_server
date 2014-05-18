@@ -1,6 +1,11 @@
 #include <iostream>
 #include <boost/bind.hpp>
 
+#include <boost/asio/write.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/read_until.hpp>
+#include <boost/asio/placeholders.hpp>
+
 #include "connection.h"
 #include "race.h"
 

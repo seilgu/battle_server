@@ -2,11 +2,13 @@
 #define HWO_CONNECTION_H
 
 #include <list>
-#include <boost/asio.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/thread.hpp>
 
 #include "protocol.h"
 
