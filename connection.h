@@ -64,17 +64,19 @@ public:
 	void terminate(std::string reason);
 
 private:
-	//hwo_race_ptr race_;
 	deadline_timer deadline_;
 
 	void handle_write(const boost::system::error_code& error, size_t bytes_transferred);
+	//void timed_read(boost::asio::streambuf &buffer, const boost::system::error_code& error, 
+	//	size_t bytes_transferred);
 	void handle_read(const boost::system::error_code& error, size_t bytes_transferred, 
 		boost::system::error_code *out_error, 	size_t *out_bytes_transferred);
 
 	void check_deadline();
 
 	tcp::socket socket_;
-	boost::asio::streambuf buffer_;
+	boost::asio::streambuf response_buf_;
+	boost::asio::streambuf request_buf_;
 };
 
 class hwo_race_manager {	// Singleton
@@ -141,7 +143,7 @@ public:
 			for (auto &s : waitlist_) {
 				hwo_race_ptr prace = set_up_race(s);
 				
-				if (prace->nPlayers() == prace->maxPlayers()) {
+				if (prace != nullptr && prace->nPlayers() == prace->maxPlayers()) {
 					prace->start();
 				}
 

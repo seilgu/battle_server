@@ -53,17 +53,13 @@ void hwo_race::run() {
 	int tick = 0;
 	while (thread_running_) {
 		for (auto &s : sessions_) {
+			if ( !(s->socket().is_open()) )  continue;
 			boost::system::error_code error;
-			std::cout << "A" << std::endl;
 			s->send_response( { make_ping() } );
-			std::cout << "B" << std::endl;
 			auto request = s->receive_request(error);
-			std::cout << "C" << std::endl;
-			if (!error)
+			if (!error) {
 				std::cout << "request received: " << request << std::endl;
-			else {
-
-			}
+			} else {}
 		}
 		tick++;
 	}
@@ -73,7 +69,8 @@ void hwo_race::run() {
 
 hwo_session::hwo_session(boost::asio::io_service& io_service)
 	: socket_(io_service), deadline_(io_service) {
-	buffer_.prepare(8192);
+	response_buf_.prepare(8192);
+	request_buf_.prepare(8192);
 }
 hwo_session::~hwo_session() {
 	socket_.close();
@@ -82,11 +79,11 @@ hwo_session::~hwo_session() {
 void hwo_session::terminate(std::string reason) {
 
 	if (socket_.is_open()) {
-		std::ostream os(&buffer_);
+		std::ostream os(&response_buf_);
 		os << reason << std::endl;
 
 		try {
-			boost::asio::async_write(socket_, buffer_, boost::bind(&hwo_session::handle_write, this, 
+			boost::asio::async_write(socket_, response_buf_, boost::bind(&hwo_session::handle_write, this, 
 				boost::asio::placeholders::error, 
 				boost::asio::placeholders::bytes_transferred ));
 		} catch (std::exception &e) {
@@ -100,7 +97,7 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	size_t bytes_transferred;
 	error = boost::asio::error::would_block;
 
-	boost::asio::async_read_until(socket_, buffer_, "\n", 
+	boost::asio::async_read_until(socket_, request_buf_, "\n", 
 			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &error, &bytes_transferred ));
 
 	deadline_.expires_from_now(boost::posix_time::seconds(2));
@@ -115,7 +112,7 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 		return jsoncons::json();
 	}
 
-	std::istream is(&buffer_);
+	std::istream is(&request_buf_);
 	return jsoncons::json::parse(is);
 }
 
@@ -123,15 +120,15 @@ void hwo_session::send_response(const std::vector<jsoncons::json>& msgs) {
 	
 	jsoncons::output_format format;
 	format.escape_all_non_ascii(true);
-	boost::asio::streambuf response_buf;
 
-	std::ostream s(&response_buf);
+	response_buf_.consume(response_buf_.size());
+	std::ostream s(&response_buf_);
 	for (const auto& m : msgs) {
 		m.to_stream(s, format);
 		s << std::endl;
 	}
 	
-	boost::asio::async_write(socket_, response_buf,
+	boost::asio::async_write(socket_, response_buf_,
 			boost::bind(&hwo_session::handle_write, shared_from_this(),
 				boost::asio::placeholders::error,
 				boost::asio::placeholders::bytes_transferred));
@@ -200,6 +197,20 @@ void hwo_session::handle_write(const boost::system::error_code& error, size_t by
 	}
 }
 
+/*void hwo_session::timed_read(boost::asio::streambuf &buffer, const boost::system::error_code& error, 
+	size_t bytes_transferred) {
+
+	boost::asio::async_read_until(socket_, buffer, "\n", 
+			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &error, &bytes_transferred ));
+
+	deadline_.expires_from_now(boost::posix_time::seconds(2));
+	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
+
+	do {
+		boost::this_thread::sleep( boost::posix_time::milliseconds(0) );
+	} while (error == boost::asio::error::would_block);
+}*/
+
 void hwo_session::handle_read(const boost::system::error_code& error, size_t bytes_transferred, 
 	boost::system::error_code *out_error, 	size_t *out_bytes_transferred) {
 
@@ -211,7 +222,7 @@ void hwo_session::handle_read(const boost::system::error_code& error, size_t byt
 		terminate("handle_read error");
 	}
 
-	
+
 	*out_bytes_transferred = bytes_transferred;
 	*out_error = error;
 
