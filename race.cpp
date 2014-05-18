@@ -61,6 +61,7 @@ void hwo_race::run() {
 				if (msgs.size() > 0)
 					std::cout << "response sent: " << msgs[0] << std::endl;
 			} else {}
+
 			auto request = s->receive_request(error);
 			if (!error) {
 				std::cout << "request received: " << request << std::endl;
