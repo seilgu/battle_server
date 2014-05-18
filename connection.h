@@ -22,28 +22,7 @@ using boost::asio::ip::tcp;
 class hwo_session;
 typedef boost::shared_ptr<hwo_session> hwo_session_ptr;
 
-class hwo_race : public boost::enable_shared_from_this<hwo_race> {
-public:
-	hwo_race(std::string racename, int maxPlayers);
-	~hwo_race();
-
-	void start();
-	void run();
-
-	int join(hwo_session_ptr session);
-	std::string racename();
-	int nPlayers();
-	int maxPlayers();
-
-private:
-	std::list<hwo_session_ptr> sessions_;
-	boost::thread race_thread_;
-	bool thread_running_;
-
-	std::string racename_;
-	int maxPlayers_;
-};
-
+class hwo_race;
 typedef boost::shared_ptr<hwo_race> hwo_race_ptr;
 
 class hwo_session : public boost::enable_shared_from_this<hwo_session> {
@@ -81,80 +60,15 @@ private:
 
 class hwo_race_manager {	// Singleton
 public:
-	static hwo_race_manager &Instance() {
-		static hwo_race_manager instance;
-		return instance;
-	}
+	static hwo_race_manager &Instance();
 
-	int hwo_session_join(hwo_session_ptr hwo_session) {
-		mutex_.lock();
-		waitlist_.push_back(hwo_session);
-		mutex_.unlock();
-		return 1;
-	}
+	int hwo_session_join(hwo_session_ptr hwo_session);
 
-	hwo_race_ptr query_race(std::string name) {
-		for (auto &race : racelist_) {
-			if (race->racename() == name)
-				return race;
-		}
-		return nullptr;
-	}
+	hwo_race_ptr query_race(std::string name);
 
-	hwo_race_ptr set_up_race(hwo_session_ptr s) {
+	hwo_race_ptr set_up_race(hwo_session_ptr s);
 
-		std::string name, key, racename;
-		int maxPlayers;
-
-		if (s->wait_for_join(name, key, racename, maxPlayers)) {
-
-			// if (racename == "") ... 
-			hwo_race_ptr qrace = query_race(racename);
-			if ( qrace != nullptr ) {
-				if ( maxPlayers != qrace->maxPlayers() ) {
-					s->terminate("numPlayers does not match");
-					return nullptr;
-				} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
-					qrace->join(s);
-					return qrace;
-				} else {	// race already full
-					std::cout << "race full" << std::endl;
-					s->terminate("race already full");
-					return nullptr;
-				}
-			} else {
-				std::cout << "creating new race" << std::endl;
-				hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
-				nrace->join(s);
-				racelist_.push_back(nrace);
-				return nrace;
-			}
-		} else {
-			std::cout << "protocol fail" << std::endl;
-			s->terminate("protocol failed");
-			return nullptr;
-		}
-
-	}
-
-	void run() {
-		while (1) {
-			mutex_.lock();
-			for (auto &s : waitlist_) {
-				hwo_race_ptr prace = set_up_race(s);
-				
-				if (prace != nullptr && prace->nPlayers() == prace->maxPlayers()) {
-					prace->start();
-				}
-
-				waitlist_.remove(s);
-				break;
-			}
-			mutex_.unlock();
-
-			boost::this_thread::sleep( boost::posix_time::milliseconds(10) );
-		}
-	}
+	void run();
 
 private:
 	std::list<hwo_session_ptr> waitlist_;
@@ -163,15 +77,8 @@ private:
 	boost::thread manager_thread_;
 	boost::mutex mutex_;
 
-	hwo_race_manager() {
-		waitlist_.resize(0);
-		racelist_.resize(0);
-		manager_thread_ = boost::thread(&hwo_race_manager::run, this);
-	}
-	~hwo_race_manager() {
-		for (auto &s : waitlist_) 		s.reset();
-		for (auto &race : racelist_) 	race.reset();
-	}
+	hwo_race_manager();
+	~hwo_race_manager();
 };
 
 class hwo_server {

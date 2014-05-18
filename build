@@ -1,8 +1,8 @@
 #!/bin/bash
 
 if [ "$(uname)" == "Darwin" ];then
-	g++ main.cpp protocol.cpp connection.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l boost_thread-mt
+	g++ main.cpp protocol.cpp connection.cpp race.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l boost_thread-mt
 else
-	g++ main.cpp protocol.cpp connection.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l boost_thread
+	g++ main.cpp protocol.cpp connection.cpp race.cpp -std=c++11 -I jsoncons/src/ -o plusbot -l boost_system -l boost_thread
 fi
 

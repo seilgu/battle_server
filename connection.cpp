@@ -1,4 +1,5 @@
 #include "connection.h"
+#include "race.h"
 
 using boost::asio::ip::tcp;
 
@@ -7,63 +8,6 @@ using namespace hwo_protocol;
 class hwo_session;
 typedef boost::shared_ptr<hwo_session> hwo_session_ptr;
 
-/** hwo_race **/
-hwo_race::hwo_race(std::string racename, int maxPlayers) 
-	: racename_(racename), maxPlayers_(maxPlayers) {
-	BOOST_ASSERT(maxPlayers > 0);
-	sessions_.resize(0);
-	thread_running_ = false;
-}
-hwo_race::~hwo_race() {
-	thread_running_ = false;
-	race_thread_.join();
-	for (auto &s : sessions_) {
-		s.reset();
-	}
-}
-
-int hwo_race::maxPlayers() {
-	return maxPlayers_;
-}
-
-int hwo_race::nPlayers() {
-	return sessions_.size();
-}
-
-std::string hwo_race::racename() {
-	return racename_;
-}
-
-int hwo_race::join(hwo_session_ptr session) {
-	if (sessions_.size() == maxPlayers_) {
-		return 0;
-	}
-
-	sessions_.push_back(session);
-
-	return 1;
-}
-
-void hwo_race::start() {
-	thread_running_ = true;
-	race_thread_ = boost::thread(&hwo_race::run, this);
-}
-
-void hwo_race::run() {
-	int tick = 0;
-	while (thread_running_) {
-		for (auto &s : sessions_) {
-			if ( !(s->socket().is_open()) )  continue;
-			boost::system::error_code error;
-			s->send_response( { make_ping() } );
-			auto request = s->receive_request(error);
-			if (!error) {
-				std::cout << "request received: " << request << std::endl;
-			} else {}
-		}
-		tick++;
-	}
-}
 
 /** hwo_session **/
 
@@ -245,4 +189,92 @@ void hwo_server::handle_accept(hwo_session_ptr s, const boost::system::error_cod
 	}
 
 	start_accept();
+}
+
+
+/** hwo_manager **/
+
+hwo_race_manager &hwo_race_manager::Instance() {
+	static hwo_race_manager instance;
+	return instance;
+}
+
+int hwo_race_manager::hwo_session_join(hwo_session_ptr hwo_session) {
+	mutex_.lock();
+	waitlist_.push_back(hwo_session);
+	mutex_.unlock();
+	return 1;
+}
+
+hwo_race_ptr hwo_race_manager::query_race(std::string name) {
+	for (auto &race : racelist_) {
+		if (race->racename() == name)
+			return race;
+	}
+	return nullptr;
+}
+
+hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
+
+	std::string name, key, racename;
+	int maxPlayers;
+
+	if (s->wait_for_join(name, key, racename, maxPlayers)) {
+
+		// if (racename == "") ... 
+		hwo_race_ptr qrace = query_race(racename);
+		if ( qrace != nullptr ) {
+			if ( maxPlayers != qrace->maxPlayers() ) {
+				s->terminate("numPlayers does not match");
+				return nullptr;
+			} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
+				qrace->join(s);
+				return qrace;
+			} else {	// race already full
+				std::cout << "race full" << std::endl;
+				s->terminate("race already full");
+				return nullptr;
+			}
+		} else {
+			std::cout << "creating new race" << std::endl;
+			hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
+			nrace->join(s);
+			racelist_.push_back(nrace);
+			return nrace;
+		}
+	} else {
+		std::cout << "protocol fail" << std::endl;
+		s->terminate("protocol failed");
+		return nullptr;
+	}
+
+}
+
+void hwo_race_manager::run() {
+	while (1) {
+		mutex_.lock();
+		for (auto &s : waitlist_) {
+			hwo_race_ptr prace = set_up_race(s);
+			
+			if (prace != nullptr && prace->nPlayers() == prace->maxPlayers()) {
+				prace->start();
+			}
+
+			waitlist_.remove(s);
+			break;
+		}
+		mutex_.unlock();
+
+		boost::this_thread::sleep( boost::posix_time::milliseconds(10) );
+	}
+}
+
+hwo_race_manager::hwo_race_manager() {
+	waitlist_.resize(0);
+	racelist_.resize(0);
+	manager_thread_ = boost::thread(&hwo_race_manager::run, this);
+}
+hwo_race_manager::~hwo_race_manager() {
+	for (auto &s : waitlist_) 		s.reset();
+	for (auto &race : racelist_) 	race.reset();
 }
