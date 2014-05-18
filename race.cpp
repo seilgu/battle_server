@@ -55,7 +55,12 @@ void hwo_race::run() {
 		for (auto &s : sessions_) {
 			if ( !(s->socket().is_open()) )  continue;
 			boost::system::error_code error;
-			s->send_response( { make_ping() } );
+			std::vector<jsoncons::json> msgs = { make_ping() };
+			s->send_response( msgs, error );
+			if (!error) {
+				if (msgs.size() > 0)
+					std::cout << "response sent: " << msgs[0] << std::endl;
+			} else {}
 			auto request = s->receive_request(error);
 			if (!error) {
 				std::cout << "request received: " << request << std::endl;

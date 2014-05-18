@@ -38,7 +38,7 @@ public:
 	void run();
 
 	jsoncons::json receive_request(boost::system::error_code& error);
-	void send_response(const std::vector<jsoncons::json>& msgs);
+	void send_response(const std::vector<jsoncons::json>& msgs, boost::system::error_code &error);
 
 	void terminate(std::string reason);
 
