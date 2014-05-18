@@ -1,3 +1,6 @@
+#include <iostream>
+#include <boost/bind.hpp>
+
 #include "connection.h"
 #include "race.h"
 
@@ -18,6 +21,9 @@ hwo_session::hwo_session(boost::asio::io_service& io_service)
 }
 hwo_session::~hwo_session() {
 	socket_.close();
+}
+tcp::socket& hwo_session::socket() {
+	return socket_;
 }
 
 void hwo_session::terminate(std::string reason) {
@@ -130,10 +136,6 @@ int hwo_session::wait_for_join(std::string& name, std::string& key, std::string 
 		terminate("expected joinRace");
 		return 0;
 	}
-}
-
-void hwo_session::run() {
-
 }
 
 void hwo_session::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
