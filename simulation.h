@@ -10,26 +10,14 @@ using namespace std;
 class simulation {
 private:
 
-	enum { LINEAR, CURVED };
+	enum segment_type { LINEAR, CURVED };
 	
 	struct segment {
+		segment_type type;
 		bool switchable;
 		double length;
 		double radius;
 		double angle;
-	};
-	struct gameinfo {
-		int turboDurationTicks;
-		double  turboFactor;
-		std::vector<int> turboAvailableTicks;
-
-		std::vector<segment> pieces;
-
-		double k1;
-		double k2;
-		double A;
-
-		int nLanes;
 	};
 
 	struct x_rad {
@@ -128,13 +116,28 @@ private:
 		std::string color;
 	};
 
+	int turboDurationTicks;
+	double  turboFactor;
+	std::vector<int> turboAvailableTicks;
+
+	std::vector<segment> pieces;
+	piece_len piecelen;
+	piece_rad piecerad;
+
+	double k1;
+	double k2;
+	double A;
+
 	std::vector<int> lanes_dist;
+	std::vector<car> cars;
+	int nLanes;
+
 
 public:
 	simulation();
 	~simulation();
 
-	void reset();
+	int reset();
 };
 
 
