@@ -35,8 +35,23 @@ bool hwo_race::race_finished() const {
 }
 
 int hwo_race::join(hwo_session_ptr session) {
-	if (sessions_.size() == param_.maxPlayers) {
+
+	if ( session->maxPlayers_ != param_.maxPlayers ) {
+		session->terminate("numPlayers does not match");
 		return 0;
+	} else if ( sessions_.size() >= param_.maxPlayers ) {
+		session->terminate("race already full");
+		return 0;
+	} else if ( session->key_ != param_.key ){
+		session->terminate("key incorrect");
+		return 0;
+	}
+
+	for (auto &s : sessions_) {
+		if (s->name_ == session->name_) {
+			session->terminate("name already taken");
+			return 0;
+		}
 	}
 
 	sessions_.push_back(session);
@@ -56,7 +71,7 @@ void hwo_race::start() {
 	trackfile.close();
 
 	jsoncons::json msg_track;
-	msg_track["msgType"] = "trackInfo";
+	msg_track["msgType"] = "gameInit";
 	msg_track["data"] = trackjson;
 
 	boost::system::error_code error;

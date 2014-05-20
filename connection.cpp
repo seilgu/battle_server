@@ -103,7 +103,8 @@ void hwo_session::check_deadline() {
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 }
 
-int hwo_session::wait_for_join(std::string& name, std::string& key, std::string &racename, int &maxPlayers) {
+//int hwo_session::wait_for_join(std::string& name, std::string& key, std::string &racename, int &maxPlayers) {
+int hwo_session::wait_for_join() {
 	boost::system::error_code error;
 	jsoncons::json request = receive_request(error);
 
@@ -119,23 +120,23 @@ int hwo_session::wait_for_join(std::string& name, std::string& key, std::string 
 		jsoncons::json &data = request["data"];
 		jsoncons::json &botId = data["botId"];
 
-		if (botId.has_member("name"))		name = botId["name"].as<std::string>();
+		if (botId.has_member("name"))		name_ = botId["name"].as<std::string>();
 		else {
 			terminate("no name field"); return 0;
 		}
 
-		if (botId.has_member("key"))		key = botId["key"].as<std::string>();
+		if (botId.has_member("key"))		key_ = botId["key"].as<std::string>();
 		else {
 			terminate("no key specified"); return 0;
 		}
 
-		if (data.has_member("raceName")) 	racename = data["raceName"].as<std::string>();
-		else								racename = "";
+		if (data.has_member("raceName")) 	racename_ = data["raceName"].as<std::string>();
+		else								racename_ = "";
 
-		if (data.has_member("numPlayers"))  maxPlayers = data["numPlayers"].as<int>();
-		else								maxPlayers = 1;
+		if (data.has_member("numPlayers"))  maxPlayers_ = data["numPlayers"].as<int>();
+		else								maxPlayers_ = 1;
 
-		if (maxPlayers <= 0) std::cout << "nPlayers <= 0 !" << std::endl;
+		if (maxPlayers_ <= 0) std::cout << "nPlayers <= 0 !" << std::endl;
 
 		return 1;
 
@@ -212,33 +213,23 @@ hwo_race_ptr hwo_race_manager::query_race(std::string name) {
 
 hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 
-	std::string name, key, racename;
-	int maxPlayers;
-
-	if (s->wait_for_join(name, key, racename, maxPlayers)) {
+	if (s->wait_for_join()) {
 
 		// if (racename == "") ... 
-		hwo_race_ptr qrace = query_race(racename);
+		hwo_race_ptr qrace = query_race(s->racename_);
 		if ( qrace != nullptr ) {
-			race_param qparam = qrace->get_race_param();
-			if ( maxPlayers != qparam.maxPlayers ) {
-				s->terminate("numPlayers does not match");
-				return nullptr;
-			} else if ( qrace->nPlayers() < qparam.maxPlayers ) {
-				qrace->join(s);
+			if (qrace->join(s))
 				return qrace;
-			} else {	// race already full
-				std::cout << "race full" << std::endl;
-				s->terminate("race already full");
+			else
 				return nullptr;
-			}
+
 		} else {
 			std::cout << "creating new race" << std::endl;
 
 			race_param param;
-			param.maxPlayers = maxPlayers;
-			param.racename = racename;
-			param.key = key;
+			param.maxPlayers = s->maxPlayers_;
+			param.racename = s->racename_;
+			param.key = s->key_;
 			param.raceId = hwo_race::getUniqueId(param);
 
 			hwo_race_ptr nrace(new hwo_race(param));
