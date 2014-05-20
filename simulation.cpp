@@ -3,6 +3,7 @@
 #include <iostream>
 #include <jsoncons/json.hpp>
 
+#include "util.h"
 
 simulation::simulation() {
 
@@ -24,16 +25,7 @@ int simulation::reset() {
 	turboAvailableTicks.push_back(1200);
 	turboAvailableTicks.push_back(1800);
 
-	std::string trackfileName = "keimola.track";
-	std::ifstream trackfile(trackfileName);
-	if (!trackfile.is_open()) {
-		std::cout << "can't open track file \"" << trackfileName << "\"";
-		return 0;
-	}
-	jsoncons::json trackjson = jsoncons::json::parse(trackfile);
-	trackfile.close();
-
-
+	//LOG("trackfile", trackjson);
 	// set up segments
 
 	return 1;

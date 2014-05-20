@@ -18,7 +18,6 @@ typedef boost::shared_ptr<hwo_session> hwo_session_ptr;
 
 
 /** hwo_session **/
-
 hwo_session::hwo_session(boost::asio::io_service& io_service)
 	: socket_(io_service), deadline_(io_service) {
 	response_buf_.prepare(8192);
@@ -49,6 +48,8 @@ void hwo_session::terminate(std::string reason) {
 }
 
 jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
+	if ( !socket_.is_open() ) return jsoncons::json();
+
 	size_t bytes_transferred;
 	error = boost::asio::error::would_block;
 
@@ -63,7 +64,7 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	} while (error == boost::asio::error::would_block);
 
 	if ( error || !socket_.is_open() ) {
-		std::cout << error.message() << std::endl;
+		//std::cout << error.message() << std::endl;
 		return jsoncons::json();
 	}
 
@@ -72,6 +73,7 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 }
 
 void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::system::error_code &error) {
+	if ( !socket_.is_open() ) return;
 	
 	jsoncons::output_format format;
 	format.escape_all_non_ascii(true);
@@ -89,7 +91,7 @@ void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::
 				boost::asio::placeholders::bytes_transferred));
 
 	if ( error || !socket_.is_open() ) {
-		std::cout << error.message() << std::endl;
+		//std::cout << error.message() << std::endl;
 	}
 }
 
@@ -146,7 +148,7 @@ int hwo_session::wait_for_join(std::string& name, std::string& key, std::string 
 void hwo_session::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
 	if (!error) {
 	} else {
-		std::cout << "handle_write error:" << error.message() << std::endl;
+		//std::cout << "handle_write error:" << error.message() << std::endl;
 		terminate("handle_write error");
 	}
 }
@@ -158,7 +160,7 @@ void hwo_session::handle_read(const boost::system::error_code& error, size_t byt
 
 	if (!error) {
 	} else {
-		std::cout << "handle_read error:" << error.message() << std::endl;
+		//std::cout << "handle_read error:" << error.message() << std::endl;
 		terminate("handle_read error");
 	}
 
@@ -202,7 +204,7 @@ int hwo_race_manager::hwo_session_join(hwo_session_ptr hwo_session) {
 
 hwo_race_ptr hwo_race_manager::query_race(std::string name) {
 	for (auto &race : racelist_) {
-		if (race->racename() == name)
+		if (race->get_race_param().racename == name)
 			return race;
 	}
 	return nullptr;
@@ -218,10 +220,11 @@ hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 		// if (racename == "") ... 
 		hwo_race_ptr qrace = query_race(racename);
 		if ( qrace != nullptr ) {
-			if ( maxPlayers != qrace->maxPlayers() ) {
+			race_param qparam = qrace->get_race_param();
+			if ( maxPlayers != qparam.maxPlayers ) {
 				s->terminate("numPlayers does not match");
 				return nullptr;
-			} else if ( qrace->nPlayers() < qrace->maxPlayers() ) {
+			} else if ( qrace->nPlayers() < qparam.maxPlayers ) {
 				qrace->join(s);
 				return qrace;
 			} else {	// race already full
@@ -231,7 +234,14 @@ hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 			}
 		} else {
 			std::cout << "creating new race" << std::endl;
-			hwo_race_ptr nrace(new hwo_race(racename, maxPlayers));
+
+			race_param param;
+			param.maxPlayers = maxPlayers;
+			param.racename = racename;
+			param.key = key;
+			param.raceId = hwo_race::getUniqueId(param);
+
+			hwo_race_ptr nrace(new hwo_race(param));
 			nrace->join(s);
 			racelist_.push_back(nrace);
 			return nrace;
@@ -244,13 +254,17 @@ hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 
 }
 
+std::list< boost::shared_ptr<const hwo_race> > hwo_race_manager::get_racelist() {
+	return std::list< boost::shared_ptr<const hwo_race> >(racelist_.begin(), racelist_.end());
+}
+
 void hwo_race_manager::run() {
 	while (1) {
 		mutex_.lock();
 		for (auto &s : waitlist_) {
 			hwo_race_ptr prace = set_up_race(s);
 			
-			if (prace != nullptr && prace->nPlayers() == prace->maxPlayers()) {
+			if (prace != nullptr && prace->nPlayers() == prace->get_race_param().maxPlayers ) {
 				prace->start();
 			}
 
@@ -259,16 +273,23 @@ void hwo_race_manager::run() {
 		}
 		mutex_.unlock();
 
+		for (auto &r : racelist_) {
+			if (r->race_finished()) {
+				racelist_.remove(r);
+				break;
+			}
+		}
+
 		boost::this_thread::sleep( boost::posix_time::milliseconds(10) );
 	}
 }
 
 hwo_race_manager::hwo_race_manager() {
-	waitlist_.resize(0);
-	racelist_.resize(0);
+	waitlist_.clear();
+	racelist_.clear();
 	manager_thread_ = boost::thread(&hwo_race_manager::run, this);
 }
 hwo_race_manager::~hwo_race_manager() {
-	for (auto &s : waitlist_) 		s.reset();
-	for (auto &race : racelist_) 	race.reset();
+	waitlist_.clear();
+	racelist_.clear();
 }

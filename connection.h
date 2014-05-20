@@ -52,6 +52,7 @@ public:
 	int hwo_session_join(hwo_session_ptr hwo_session);
 	hwo_race_ptr query_race(std::string name);
 	hwo_race_ptr set_up_race(hwo_session_ptr s);
+	std::list< boost::shared_ptr<const hwo_race> > get_racelist();
 
 	void run();
 
