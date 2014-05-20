@@ -8,7 +8,7 @@
 using namespace std;
 
 class simulation {
-private:
+public:
 
 	enum segment_type { LINEAR, CURVED };
 	
@@ -106,19 +106,17 @@ private:
 		double x;
 		int startLane, endLane;
 		double angle;
-
-		int tick;
 		int laps = 0;
+
+		bool useTurbo;
+		int direction;
+		double throttle;
 
 		double v, w;
 
 		std::string name;
 		std::string color;
 	};
-
-	int turboDurationTicks;
-	double  turboFactor;
-	std::vector<int> turboAvailableTicks;
 
 	std::vector<segment> pieces;
 	piece_len piecelen;
@@ -128,9 +126,12 @@ private:
 	double k2;
 	double A;
 
+	double turboFactor;
+
+	int nLanes;
 	std::vector<int> lanes_dist;
 	std::vector<car> cars;
-	int nLanes;
+
 
 
 public:
@@ -138,6 +139,11 @@ public:
 	~simulation();
 
 	int reset();
+	void update();
+
+	double distToCar(car source, car target);
+	static void set_empty_car(car &cc);
+	void update_one_step(car& ic);
 };
 
 

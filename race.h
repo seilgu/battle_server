@@ -36,6 +36,8 @@ public:
 	int nPlayers() const;
 	bool race_finished() const;
 
+	void handle_request(jsoncons::json &request, hwo_session_ptr session);
+
 private:
 	std::list<hwo_session_ptr> sessions_;
 	boost::thread race_thread_;
@@ -44,7 +46,13 @@ private:
 
 	race_param param_;
 
-	simulation engine;
+	simulation sim_;
+
+	double turboFactor;
+	int turboDurationTicks;
+	std::vector<int> turboAvailableTicks;
+
+	int tick;
 };
 
 
