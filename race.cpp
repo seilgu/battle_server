@@ -5,11 +5,19 @@
 using namespace hwo_protocol;
 
 /** hwo_race **/
-hwo_race::hwo_race(race_param param) : param_(param) {
+
+hwo_race::hwo_race(race_param param) : param_(param), 
+	action_map {
+		{ "ping", &hwo_race::on_ping }, 
+		{ "throttle", &hwo_race::on_throttle }
+	}
+{
 	BOOST_ASSERT(param_.maxPlayers > 0);
 	sessions_.resize(0);
 	race_finished_ = false;
 	thread_running_ = false;
+
+	
 }
 hwo_race::~hwo_race() {
 	thread_running_ = false;
@@ -21,6 +29,13 @@ hwo_race::~hwo_race() {
 std::string hwo_race::getUniqueId(race_param &p) {
 	//
 	return "lalala";
+}
+
+void hwo_race::on_ping(const jsoncons::json& data, const hwo_session_ptr s) {}
+
+void hwo_race::on_throttle(const jsoncons::json& data, const hwo_session_ptr s) {
+	std::cout << "somebody onthrottle" << std::endl;
+
 }
 
 race_param hwo_race::get_race_param() const {
@@ -111,20 +126,14 @@ void hwo_race::start() {
 
 // todo : for request result not immediate, need event queue
 void hwo_race::handle_request(jsoncons::json &request, hwo_session_ptr session) {
-	for (auto &cc : sim_.cars) {
-		if (cc.name != session->name_) continue;
+	if (!request.has_member("msgType") || !request.has_member("data")) return;
 
-		/*if (cc.useTurbo && cc.turboAvailable > 0) {
-			cc.turboAvailable = 0;
-			cc.useTurbo = false;
-			cc.turboBeginTick = tick;
-			cc.onTurbo = true;
-		}
+	const auto& msg_type = request["msgType"].as<std::string>();
+	const jsoncons::json& data = request["data"];
+	auto action_it = action_map.find(msg_type);
 
-		if (cc.tick - cc.turboBeginTick > turboDurationTicks 
-			|| cc.tick < cc.turboBeginTick) cc.onTurbo = false;
-
-		*/
+	if (action_it != action_map.end()) {
+		(action_it->second)(this, data, session);
 	}
 }
 
@@ -163,6 +172,7 @@ void hwo_race::run() {
 		for (auto &s : sessions_) {
 			auto request = s->receive_request( errors[s] );
 			//std::cout << s->name_ << " recv_resp:" << errors[s].message() << std::endl;
+
 			handle_request(request, s);
 		}
 
@@ -170,10 +180,8 @@ void hwo_race::run() {
 
 		// check if anybody there
 		bool keep_running = false;
-		//LOG("size ", sessions_.size());
 		for (auto &s : sessions_) {
 			if (s->socket().is_open()) {
-		//		LOG1("A");
 				keep_running = true;
 				break;
 			}

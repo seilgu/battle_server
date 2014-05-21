@@ -6,6 +6,9 @@
 
 #include "simulation.h"
 
+#include <map>
+#include <functional>
+
 struct race_param {
 	std::string raceId;
 	std::string racename;
@@ -38,7 +41,13 @@ public:
 
 	void handle_request(jsoncons::json &request, hwo_session_ptr session);
 
+	void on_ping(const jsoncons::json& data, const hwo_session_ptr s);
+	void on_throttle(const jsoncons::json& data, const hwo_session_ptr s);
+
 private:
+	typedef std::function<void(hwo_race*, const jsoncons::json&, const hwo_session_ptr)> action_fun;
+	const std::map<std::string, action_fun> action_map;
+
 	std::list<hwo_session_ptr> sessions_;
 	boost::thread race_thread_;
 	bool thread_running_;

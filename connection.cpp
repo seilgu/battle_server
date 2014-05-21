@@ -57,7 +57,6 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	deadline_.expires_from_now(boost::posix_time::seconds(2));
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 
-	//error.clear();
 	boost::asio::async_read_until(socket_, request_buf_, "\n", 
 			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &error, &bytes_transferred ));
 
@@ -65,13 +64,17 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 		boost::this_thread::sleep( boost::posix_time::milliseconds(0) );
 	} while (error == boost::asio::error::would_block);
 
-	if ( error || !socket_.is_open() ) {
-		//std::cout << error.message() << std::endl;
+	if ( error || !socket_.is_open() ) {	//std::cout << error.message() << std::endl;
 		return jsoncons::json();
 	}
 
-	std::istream is(&request_buf_);
-	return jsoncons::json::parse(is);
+	auto buf = request_buf_.data();
+	std::string reply(boost::asio::buffers_begin(buf), boost::asio::buffers_begin(buf) + bytes_transferred);
+	request_buf_.consume(bytes_transferred);
+	return jsoncons::json::parse_string(reply);
+
+	//std::istream is(&request_buf_);
+	//return jsoncons::json::parse(is);
 }
 
 void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::system::error_code &error) {
@@ -87,14 +90,12 @@ void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::
 		s << std::endl;
 	}
 	
-	//error.clear();
 	boost::asio::async_write(socket_, response_buf_,
 			boost::bind(&hwo_session::handle_write, shared_from_this(),
 				error,
 				boost::asio::placeholders::bytes_transferred));
 
-	if ( error || !socket_.is_open() ) {
-		//std::cout << error.message() << std::endl;
+	if ( error || !socket_.is_open() ) { 	//std::cout << error.message() << std::endl;
 	}
 }
 
@@ -106,7 +107,6 @@ void hwo_session::check_deadline() {
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 }
 
-//int hwo_session::wait_for_join(std::string& name, std::string& key, std::string &racename, int &maxPlayers) {
 int hwo_session::wait_for_join() {
 	boost::system::error_code error;
 	jsoncons::json request = receive_request(error);
@@ -151,8 +151,7 @@ int hwo_session::wait_for_join() {
 
 void hwo_session::handle_write(const boost::system::error_code& error, size_t bytes_transferred) {
 	if (!error) {
-	} else {
-		//std::cout << "handle_write error:" << error.message() << std::endl;
+	} else {	//std::cout << "handle_write error:" << error.message() << std::endl;
 		terminate("handle_write error");
 	}
 }
@@ -163,8 +162,7 @@ void hwo_session::handle_read(const boost::system::error_code& error, size_t byt
 	deadline_.expires_at(boost::posix_time::pos_infin);
 
 	if (!error) {
-	} else {
-		//std::cout << "handle_read error:" << error.message() << std::endl;
+	} else {	//std::cout << "handle_read error:" << error.message() << std::endl;
 		terminate("handle_read error");
 	}
 
@@ -187,13 +185,11 @@ void hwo_server::handle_accept(hwo_session_ptr s, const boost::system::error_cod
 	if (!error) {		// successfully connected
 		hwo_race_manager::Instance().hwo_session_join(s);
 	}
-
 	start_accept();
 }
 
 
 /** hwo_manager **/
-
 hwo_race_manager &hwo_race_manager::Instance() {
 	static hwo_race_manager instance;
 	return instance;
@@ -217,8 +213,6 @@ hwo_race_ptr hwo_race_manager::query_race(std::string name) {
 hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 
 	if (s->wait_for_join()) {
-
-		// if (racename == "") ... 
 		hwo_race_ptr qrace = query_race(s->racename_);
 		if ( qrace != nullptr ) {
 			if (qrace->join(s))
