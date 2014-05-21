@@ -72,9 +72,6 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	std::string reply(boost::asio::buffers_begin(buf), boost::asio::buffers_begin(buf) + bytes_transferred);
 	request_buf_.consume(bytes_transferred);
 	return jsoncons::json::parse_string(reply);
-
-	//std::istream is(&request_buf_);
-	//return jsoncons::json::parse(is);
 }
 
 void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::system::error_code &error) {

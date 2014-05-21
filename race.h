@@ -49,6 +49,8 @@ private:
 	const std::map<std::string, action_fun> action_map;
 
 	std::list<hwo_session_ptr> sessions_;
+	std::map<hwo_session_ptr, simulation::car*> carmap;
+
 	boost::thread race_thread_;
 	bool thread_running_;
 	bool race_finished_;

@@ -34,8 +34,7 @@ std::string hwo_race::getUniqueId(race_param &p) {
 void hwo_race::on_ping(const jsoncons::json& data, const hwo_session_ptr s) {}
 
 void hwo_race::on_throttle(const jsoncons::json& data, const hwo_session_ptr s) {
-	std::cout << "somebody onthrottle" << std::endl;
-
+	carmap[s]->throttle = data.as<double>();
 }
 
 race_param hwo_race::get_race_param() const {
@@ -98,7 +97,7 @@ void hwo_race::start() {
 	}
 
 	// setup engine
-	sim_.reset();
+	sim_.reset(trackjson);
 	sim_.cars.clear();
 
 	for (auto &s : sessions_) {
@@ -107,6 +106,8 @@ void hwo_race::start() {
 		cc.name = s->name_;
 		cc.color = "red";	
 		sim_.cars.push_back(cc);
+
+		carmap[s] = &sim_.cars.back();
 	}
 
 	sim_.turboFactor = 3.0;
@@ -144,12 +145,11 @@ void hwo_race::run() {
 		errors[s] = boost::system::error_code();
 	}
 
+	// 3. update simulator
+	// 4. send results
+	// 1. send event
+	// 2. get client actions
 	while (thread_running_) {
-
-		// 3. update simulator
-		// 4. send results
-		// 1. send event
-		// 2. get client actions
 
 		sim_.update();
 
@@ -166,13 +166,10 @@ void hwo_race::run() {
 
 		for (auto &s : sessions_) {
 			s->send_response( msgs, errors[s] );
-			//std::cout << s->name_ << " send_resp:" << errors[s].message() << std::endl;
 		}
 		
 		for (auto &s : sessions_) {
 			auto request = s->receive_request( errors[s] );
-			//std::cout << s->name_ << " recv_resp:" << errors[s].message() << std::endl;
-
 			handle_request(request, s);
 		}
 

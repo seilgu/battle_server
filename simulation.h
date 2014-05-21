@@ -5,6 +5,9 @@
 #include <string>
 #include <cmath>
 
+#include <iostream>
+#include <jsoncons/json.hpp>
+
 using namespace std;
 
 class simulation {
@@ -66,22 +69,18 @@ public:
 
 	struct piece_len {
 		double *d;
-		bool	*measured;
 		int np, nl;
-		piece_len() { d = 0; measured = 0; }
+		piece_len() { d = 0; }
 		~piece_len() { clean(); }
 		void clean() {
 			if (d) delete[] d;
 			d = 0;
-			if (measured) delete[] measured;
-			measured = 0;
 		}
 		void init(int nump, int numl) {
 			clean();
 			nl = numl;
 			np = nump;
 			d = new double[np*nl*nl];
-			measured = new bool[np*nl*nl];
 		}
 		void setLen(int p, int sl, int el, double v) {
 			d[p*nl*nl + sl*nl + el] = v;
@@ -132,15 +131,14 @@ public:
 	std::vector<int> lanes_dist;
 	std::vector<car> cars;
 
-
-
 public:
 	simulation();
 	~simulation();
 
-	int reset();
+	int reset(jsoncons::json& data);
 	void update();
 
+	car &getcar(std::string);
 	double distToCar(car source, car target);
 	static void set_empty_car(car &cc);
 	void update_one_step(car& ic);
