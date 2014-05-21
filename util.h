@@ -4,6 +4,7 @@
 
 #include <iostream>
 
-#define LOG(A, B) (std::cout << A << ':' << B << std::endl)
+#define LOG1(A)		(std::cout << A << std::endl)
+#define LOG(A, B)	(std::cout << A << ':' << B << std::endl)
 
 #endif

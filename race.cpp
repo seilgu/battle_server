@@ -1,5 +1,7 @@
 #include "race.h"
 
+#include "util.h"
+
 using namespace hwo_protocol;
 
 /** hwo_race **/
@@ -151,11 +153,15 @@ void hwo_race::run() {
 		}
 
 		for (auto &s : sessions_) {
+			error = boost::system::error_code(); // need correct value or io will fail
 			s->send_response( msgs, error );
+			std::cout << s->name_ << " send_resp:" << error.message() << std::endl;
 		}
 
 		for (auto &s : sessions_) {
+			error = boost::system::error_code(); // need correct value or io will fail
 			auto request = s->receive_request(error);
+			std::cout << s->name_ << " recv_resp:" << error.message() << std::endl;
 			handle_request(request, s);
 		}
 
@@ -163,8 +169,10 @@ void hwo_race::run() {
 
 		// check if anybody there
 		bool keep_running = false;
+		//LOG("size ", sessions_.size());
 		for (auto &s : sessions_) {
 			if (s->socket().is_open()) {
+		//		LOG1("A");
 				keep_running = true;
 				break;
 			}

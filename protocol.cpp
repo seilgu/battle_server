@@ -30,9 +30,21 @@ namespace hwo_protocol
 
 	jsoncons::json make_car_positions(std::vector<simulation::car> &cars) {
 		jsoncons::json data(jsoncons::json::an_array);
-		data.add( make_ping() );
-		data.add( make_ping() );
 
+		for (auto &cc : cars) {
+			jsoncons::json carjson;
+			carjson["piecePosition"] = jsoncons::json();
+			carjson["piecePosition"]["pieceIndex"] = cc.p;
+			carjson["piecePosition"]["inPieceDistance"] = cc.x;
+			carjson["angle"] = cc.angle;
+			carjson["piecePosition"]["lane"] = jsoncons::json();
+			carjson["piecePosition"]["lane"]["startLaneIndex"] = cc.startLane;
+			carjson["piecePosition"]["lane"]["endLaneIndex"] = cc.endLane;
+			carjson["lap"] = cc.laps;
+
+			data.add(carjson);
+		}
+		
 		return make_request("carPositions", data);
 	}
 
@@ -41,3 +53,4 @@ namespace hwo_protocol
 	}
 
 }  // namespace hwo_protocol
+

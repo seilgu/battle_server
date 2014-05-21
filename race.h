@@ -48,7 +48,6 @@ private:
 
 	simulation sim_;
 
-	double turboFactor;
 	int turboDurationTicks;
 	std::vector<int> turboAvailableTicks;
 
