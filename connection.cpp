@@ -57,6 +57,7 @@ jsoncons::json hwo_session::receive_request(boost::system::error_code& error) {
 	deadline_.expires_from_now(boost::posix_time::seconds(2));
 	deadline_.async_wait(boost::bind(&hwo_session::check_deadline, shared_from_this()));
 
+	//error.clear();
 	boost::asio::async_read_until(socket_, request_buf_, "\n", 
 			boost::bind(&hwo_session::handle_read, shared_from_this(), _1, _2, &error, &bytes_transferred ));
 
@@ -86,6 +87,7 @@ void hwo_session::send_response(const std::vector<jsoncons::json>& msgs, boost::
 		s << std::endl;
 	}
 	
+	//error.clear();
 	boost::asio::async_write(socket_, response_buf_,
 			boost::bind(&hwo_session::handle_write, shared_from_this(),
 				error,

@@ -130,7 +130,10 @@ void hwo_race::handle_request(jsoncons::json &request, hwo_session_ptr session) 
 
 void hwo_race::run() {
 	
-	boost::system::error_code error;
+	std::map<hwo_session_ptr, boost::system::error_code> errors;
+	for (auto &s : sessions_) {
+		errors[s] = boost::system::error_code();
+	}
 
 	while (thread_running_) {
 
@@ -153,15 +156,13 @@ void hwo_race::run() {
 		}
 
 		for (auto &s : sessions_) {
-			error = boost::system::error_code(); // need correct value or io will fail
-			s->send_response( msgs, error );
-			std::cout << s->name_ << " send_resp:" << error.message() << std::endl;
+			s->send_response( msgs, errors[s] );
+			//std::cout << s->name_ << " send_resp:" << errors[s].message() << std::endl;
 		}
-
+		
 		for (auto &s : sessions_) {
-			error = boost::system::error_code(); // need correct value or io will fail
-			auto request = s->receive_request(error);
-			std::cout << s->name_ << " recv_resp:" << error.message() << std::endl;
+			auto request = s->receive_request( errors[s] );
+			//std::cout << s->name_ << " recv_resp:" << errors[s].message() << std::endl;
 			handle_request(request, s);
 		}
 
