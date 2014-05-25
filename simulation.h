@@ -141,6 +141,9 @@ public:
 	car &getcar(std::string);
 	double distToCar(car source, car target);
 	static void set_empty_car(car &cc);
+	void correct_x(car &ic);
+	int find_collison(car &source, car& target);
+	void resolve_collisons();
 	void update_one_step(car& ic);
 };
 

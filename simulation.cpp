@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <jsoncons/json.hpp>
+#include <algorithm>
 
 #include "util.h"
 
@@ -54,7 +55,8 @@ void simulation::update_one_step(car& ic) {
 	ic.v += a;
 	ic.x += ic.v;
 
-	double lastDist = piecelen.getLen(ic.p, ic.startLane, ic.endLane);
+	correct_x(ic);
+	/*double lastDist = piecelen.getLen(ic.p, ic.startLane, ic.endLane);
 	if (ic.x > lastDist) {
 		ic.x -= lastDist;
 		ic.p = (ic.p + 1) % pieces.size();
@@ -69,7 +71,7 @@ void simulation::update_one_step(car& ic) {
 			ic.endLane = clamp(ic.startLane + ic.direction, lanes_dist.size());	
 			ic.direction = 0;
 		}
-	}
+	}*/
 }
 
 int simulation::set_track(jsoncons::json& data) {
@@ -176,16 +178,55 @@ void simulation::set_empty_car(car &cc) {
 	cc.dnf = false;
 }
 
+void simulation::correct_x(car &ic) {
+	double lastDist = piecelen.getLen(ic.p, ic.startLane, ic.endLane);
+	if (ic.x > lastDist) {
+		ic.x -= lastDist;
+		ic.p = (ic.p + 1) % pieces.size();
+		
+		if (ic.p == 0) {
+			ic.newlap = true;
+			ic.laps++;
+		}
+
+		ic.startLane = ic.endLane;
+		if (pieces[ic.p].switchable == true) {
+			ic.endLane = clamp(ic.startLane + ic.direction, lanes_dist.size());	
+			ic.direction = 0;
+		}
+	}
+}
+
+int simulation::find_collison(car &source, car& target) {
+	for (int i=0; i<cars.size(); i++) {
+		for (int j=0; j<cars.size(); j++) {
+			if (i == j) continue;
+
+			if (distToCar(cars[i], cars[j]) < 0.25*(cars[i].length + cars[j].length)) {
+				source = cars[i];
+				target = cars[j];
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+void simulation::resolve_collisons() {
+	car source, target;
+	while ( find_collison(source, target) ) {
+		target.x = source.x + 0.25*(source.length, target.length);
+		correct_x(target);
+		std::swap(source.v, target.v);
+	}
+}
+
 void simulation::update() {
 	for (auto &cc : cars) {
-		if (cc.crashing == false && cc.finishedRace == false && cc.dnf == false)
+		if (cc.crashing == false && cc.finishedRace == false && cc.dnf == false) {
 			update_one_step(cc);
-		
-		//if (cc.direction != 0 && pieces[cc.p].switchable == true) {
-		//	cc.direction = 0;
-		//}
-
-		// if fabs(cc.angle) > 60
-		// if collision
+		}
 	}
+
+	resolve_collisons();
 }
