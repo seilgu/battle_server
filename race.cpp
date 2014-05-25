@@ -26,8 +26,6 @@ hwo_race::hwo_race( hwo_session_ptr &s )
 	param_.password = s->password_;
 	param_.carCount = s->carCount_;
 	param_.raceId = hwo_race::getUniqueId(param_);
-	
-	param_.laps = 5;	
 
 	sessions_.resize(0);
 	race_finished_ = false;
@@ -92,6 +90,8 @@ void hwo_race::start() {
 	param_.turboDurationTicks = 30;
 	param_.crashDurationTicks = 5;
 
+	param_.laps = 5;
+
 	param_.turboAvailableTicks.clear();
 	param_.turboAvailableTicks.push_back(600);
 	param_.turboAvailableTicks.push_back(1200);
@@ -117,7 +117,7 @@ void hwo_race::start() {
 
 	boost::system::error_code error;
 
-	// setup yourcar / gameInit
+	// yourcar
 	for (auto s : sessions_) {	
 		simulation::car &cc = *carmap[s];
 		jsoncons::json msg_yourcar;
@@ -128,6 +128,7 @@ void hwo_race::start() {
 		s->send_response( { msg_yourcar }, error );
 	}
 
+	// gameInit
 	jsoncons::json msg_track;
 	msg_track["msgType"] = "gameInit";
 	msg_track["data"] = jsoncons::json();
@@ -171,6 +172,7 @@ void hwo_race::run() {
 	for (auto &s : sessions_) 	errors[s] = boost::system::error_code();
 
 	{
+		hwo_protocol::gameTick = tick;
 		jsoncons::json game_start = make_game_start();
 		for (auto &s : sessions_) {
 			s->send_response( { game_start } , errors[s] );
@@ -195,7 +197,7 @@ void hwo_race::run() {
 		}
 
 		// who crashed
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.crashing == false && fabs(cc.angle) > 60.0) {
 				cc.crashing = true;
@@ -208,7 +210,7 @@ void hwo_race::run() {
 			}
 		}
 		// who spawned
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.crashing == true && tick - cc.lastCrashedTick > param_.crashDurationTicks) {
 				cc.crashing = false;
@@ -216,7 +218,7 @@ void hwo_race::run() {
 			}
 		}
 		// who turboStart
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.turboBeginTick == tick) {
 				cc.onTurbo = true;
@@ -224,7 +226,7 @@ void hwo_race::run() {
 			}
 		}
 		// who turboEnd
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.onTurbo == true && tick - cc.turboBeginTick > param_.turboDurationTicks) {
 				cc.onTurbo = false;
@@ -233,7 +235,7 @@ void hwo_race::run() {
 		}
 
 		// lapfinished
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.newlap == true) {
 				cc.newlap = false;
@@ -242,7 +244,7 @@ void hwo_race::run() {
 		}
 
 		// racefinished
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.laps >= param_.laps) {
 				cc.finishedRace = true;
@@ -252,11 +254,17 @@ void hwo_race::run() {
 
 		msgs.push_back( make_car_positions(sim_.cars) );
 
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			s->send_response( msgs, errors[s] );
 		}
+
+		for (auto s : sessions_) {
+			if (carmap[s]->finishedRace) {
+				s->terminate("");
+			}
+		}
 		
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			auto request = s->receive_request( errors[s] );
 			handle_request(request, s);
 		}
@@ -269,7 +277,7 @@ void hwo_race::run() {
 
 		// check if anybody there
 		bool keep_running = false;
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			if (s->socket().is_open()) {
 				keep_running = true;
 				break;

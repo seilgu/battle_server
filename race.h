@@ -23,9 +23,6 @@ struct race_param {
 	int laps;
 
 	race_param() {}
-	/*race_param(const race_param &p)
-		: raceId(p.raceId), racename(p.racename), key(p.key), trackfile(p.trackfile), maxPlayers(p.maxPlayers)
-	{}*/
 };
 
 class hwo_race : public boost::enable_shared_from_this<hwo_race> {

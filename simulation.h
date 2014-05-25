@@ -105,15 +105,14 @@ public:
 		double x;
 		int startLane, endLane;
 		double angle;
-		int laps = 0;
+		bool newlap;
+		int laps;
 
 		bool useTurbo;
 		int direction;
 		double throttle;
 
 		double v, w;
-
-		bool newlap;
 
 		std::string name;
 		std::string color;

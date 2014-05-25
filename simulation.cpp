@@ -165,6 +165,7 @@ void simulation::set_empty_car(car &cc) {
 	cc.startLane = 0;
 	cc.endLane = 0;
 	cc.angle = 0.0;
+	cc.newlap = false;
 	cc.laps = 0;
 	cc.useTurbo = false;
 	cc.direction = 0;
@@ -172,7 +173,6 @@ void simulation::set_empty_car(car &cc) {
 	cc.v = 0.0;
 	cc.w = 0.0;
 	cc.direction = 0;
-	cc.newlap = false;
 	cc.dnf = false;
 }
 
