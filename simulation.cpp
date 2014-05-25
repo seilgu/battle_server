@@ -146,8 +146,6 @@ int simulation::set_track(jsoncons::json& data) {
 		}
 	}
 
-	std::cout << "la " << pieces.size() << std::endl;
-
 	return 1;
 
 }
@@ -175,12 +173,13 @@ void simulation::set_empty_car(car &cc) {
 	cc.w = 0.0;
 	cc.direction = 0;
 	cc.newlap = false;
+	cc.dnf = false;
 }
 
 void simulation::update() {
 	for (auto &cc : cars) {
-		
-		update_one_step(cc);
+		if (cc.crashing == false && cc.finishedRace == false && cc.dnf == false)
+			update_one_step(cc);
 		
 		//if (cc.direction != 0 && pieces[cc.p].switchable == true) {
 		//	cc.direction = 0;

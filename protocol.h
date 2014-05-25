@@ -9,13 +9,14 @@
 
 namespace hwo_protocol
 {
+	extern int gameTick;
 	jsoncons::json make_request(const std::string& msg_type, const jsoncons::json& data);
 	//jsoncons::json make_join(const std::string& name, const std::string& key);
 	jsoncons::json make_ping();
 
 	jsoncons::json make_game_start();
 	jsoncons::json make_car_positions(std::vector<simulation::car> &cars);
-	jsoncons::json make_turbo_available();
+	jsoncons::json make_turbo_available(int turboDurationTicks, int turboFactor);
 	jsoncons::json make_crash( simulation::car& );
 	jsoncons::json make_spawn(  simulation::car& );
 	jsoncons::json make_turbo_start(  simulation::car& );

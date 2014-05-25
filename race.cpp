@@ -90,7 +90,7 @@ void hwo_race::start() {
 
 	sim_.turboFactor = 3.0;
 	param_.turboDurationTicks = 30;
-	param_.crashDurationTicks = 400;
+	param_.crashDurationTicks = 5;
 
 	param_.turboAvailableTicks.clear();
 	param_.turboAvailableTicks.push_back(600);
@@ -115,7 +115,19 @@ void hwo_race::start() {
 
 	tick = 0;
 
-	// setup gameInit
+	boost::system::error_code error;
+
+	// setup yourcar / gameInit
+	for (auto s : sessions_) {	
+		simulation::car &cc = *carmap[s];
+		jsoncons::json msg_yourcar;
+		msg_yourcar["msgType"] = "yourCar";
+		msg_yourcar["data"] = jsoncons::json();
+		msg_yourcar["data"]["name"] = cc.name;
+		msg_yourcar["data"]["color"] = cc.color;
+		s->send_response( { msg_yourcar }, error );
+	}
+
 	jsoncons::json msg_track;
 	msg_track["msgType"] = "gameInit";
 	msg_track["data"] = jsoncons::json();
@@ -144,7 +156,6 @@ void hwo_race::start() {
 	rs["laps"] = param_.laps;
 	msg_track["data"]["race"]["raceSession"] = rs;
 
-	boost::system::error_code error;
 	for (auto &s : sessions_) {
 		s->send_response( { msg_track }, error );
 	}
@@ -153,6 +164,7 @@ void hwo_race::start() {
 	race_thread_ = boost::thread(&hwo_race::run, this);
 }
 
+//extern int hwo_protocol::gameTick;
 void hwo_race::run() {
 	
 	std::map<hwo_session_ptr, boost::system::error_code> errors;
@@ -162,6 +174,7 @@ void hwo_race::run() {
 		jsoncons::json game_start = make_game_start();
 		for (auto &s : sessions_) {
 			s->send_response( { game_start } , errors[s] );
+			auto request = s->receive_request( errors[s] );
 		}
 	}
 
@@ -176,7 +189,7 @@ void hwo_race::run() {
 
 		for (auto tt : param_.turboAvailableTicks) {
 			if (tick == tt) {
-				msgs.push_back( make_turbo_available() );
+				msgs.push_back( make_turbo_available( param_.turboDurationTicks, sim_.turboFactor ) );
 				break;
 			}
 		}
@@ -232,6 +245,7 @@ void hwo_race::run() {
 		for (auto &s : sessions_) {
 			simulation::car &cc = *carmap[s];
 			if (cc.laps >= param_.laps) {
+				cc.finishedRace = true;
 				msgs.push_back( make_finish(cc) );
 			}
 		}
@@ -249,6 +263,7 @@ void hwo_race::run() {
 
 		sim_.update();
 		tick++;
+		hwo_protocol::gameTick = tick;
 
 		msgs.clear();
 

@@ -5,11 +5,14 @@
 
 namespace hwo_protocol
 {
+	int gameTick;
+	
 	jsoncons::json make_request(const std::string& msg_type, const jsoncons::json& data)
 	{
 		jsoncons::json r;
 		r["msgType"] = msg_type;
 		r["data"] = data;
+		r["gameTick"] = gameTick;
 		return r;
 	}
 
@@ -27,6 +30,9 @@ namespace hwo_protocol
 
 		for (auto &cc : cars) {
 			jsoncons::json carjson;
+			carjson["id"] = jsoncons::json();
+			carjson["id"]["name"] = cc.name;
+			carjson["id"]["color"] = cc.color;
 			carjson["piecePosition"] = jsoncons::json();
 			carjson["piecePosition"]["pieceIndex"] = cc.p;
 			carjson["piecePosition"]["inPieceDistance"] = cc.x;
@@ -34,7 +40,7 @@ namespace hwo_protocol
 			carjson["piecePosition"]["lane"] = jsoncons::json();
 			carjson["piecePosition"]["lane"]["startLaneIndex"] = cc.startLane;
 			carjson["piecePosition"]["lane"]["endLaneIndex"] = cc.endLane;
-			carjson["lap"] = cc.laps;
+			carjson["piecePosition"]["lap"] = cc.laps;
 
 			data.add(carjson);
 		}
@@ -42,8 +48,11 @@ namespace hwo_protocol
 		return make_request("carPositions", data);
 	}
 
-	jsoncons::json make_turbo_available() {
-		return make_request("turboAvailable", jsoncons::null_type());
+	jsoncons::json make_turbo_available(int turboDurationTicks, int turboFactor) {
+		jsoncons::json data;
+		data["turboDurationTicks"] = turboDurationTicks;
+		data["turboFactor"] = turboFactor;
+		return make_request("turboAvailable", data);
 	}
 
 	jsoncons::json make_crash( simulation::car &cc ) {

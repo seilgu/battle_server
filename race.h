@@ -2,7 +2,7 @@
 #define HWO_RACE_H
 
 #include "protocol.h"
-#include "connection.h"
+#include "server.h"
 
 #include "simulation.h"
 

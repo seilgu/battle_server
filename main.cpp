@@ -5,10 +5,8 @@
 #include <readline/history.h>
 
 #include "protocol.h"
-#include "connection.h"
+#include "server.h"
 #include "race.h"
-
-using namespace hwo_protocol;
 
 int main(int argc, const char* argv[])
 {
