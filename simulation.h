@@ -113,6 +113,8 @@ public:
 
 		double v, w;
 
+		bool newlap;
+
 		std::string name;
 		std::string color;
 	};
@@ -131,11 +133,10 @@ public:
 	std::vector<int> lanes_dist;
 	std::vector<car> cars;
 
-public:
 	simulation();
 	~simulation();
 
-	int reset(jsoncons::json& data);
+	int set_track(jsoncons::json& data);
 	void update();
 
 	car &getcar(std::string);

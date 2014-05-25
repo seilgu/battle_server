@@ -10,22 +10,27 @@
 #include <functional>
 
 struct race_param {
+	// setup at creation
 	std::string raceId;
-	std::string racename;
-	std::string key;
+	std::string trackname;
+	std::string password;
+	int carCount;
 
-	std::string trackfile;
-	int maxPlayers;
+	// setup after
+	std::vector<int> turboAvailableTicks;
+	int turboDurationTicks;
+	int crashDurationTicks;
+	int laps;
 
 	race_param() {}
-	race_param(const race_param &p)
+	/*race_param(const race_param &p)
 		: raceId(p.raceId), racename(p.racename), key(p.key), trackfile(p.trackfile), maxPlayers(p.maxPlayers)
-	{}
+	{}*/
 };
 
 class hwo_race : public boost::enable_shared_from_this<hwo_race> {
 public:
-	hwo_race(race_param param);
+	hwo_race( hwo_session_ptr &s );
 	~hwo_race();
 
 	static std::string getUniqueId(race_param &param);
@@ -43,6 +48,8 @@ public:
 
 	void on_ping(const jsoncons::json& data, const hwo_session_ptr s);
 	void on_throttle(const jsoncons::json& data, const hwo_session_ptr s);
+	void on_switch_lane(const jsoncons::json& data, const hwo_session_ptr s);
+	void on_turbo(const jsoncons::json& data, const hwo_session_ptr s);
 
 private:
 	typedef std::function<void(hwo_race*, const jsoncons::json&, const hwo_session_ptr)> action_fun;
@@ -58,9 +65,6 @@ private:
 	race_param param_;
 
 	simulation sim_;
-
-	int turboDurationTicks;
-	std::vector<int> turboAvailableTicks;
 
 	int tick;
 };

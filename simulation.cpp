@@ -13,13 +13,8 @@ inline int clamp(int id, int range) {
 	else return id;
 }
 
-simulation::simulation() {
-
-}
-
-simulation::~simulation() {
-
-}
+simulation::simulation() {}
+simulation::~simulation() {}
 
 double simulation::distToCar(car source, car target) {
 	if (source.p == target.p && 
@@ -35,7 +30,7 @@ double simulation::distToCar(car source, car target) {
 		source.p = (source.p + 1) % pieces.size();
 		if (source.endLane != target.startLane && pieces[source.p].switchable == true)
 			source.endLane += ( target.startLane > source.endLane ? 1 : -1 );		
-	}while (source.startLane != target.startLane || source.p != target.p);
+	} while (source.startLane != target.startLane || source.p != target.p);
 	dist += target.x;
 
 	return dist;
@@ -64,25 +59,27 @@ void simulation::update_one_step(car& ic) {
 		ic.x -= lastDist;
 		ic.p = (ic.p + 1) % pieces.size();
 		
-		if (ic.p == 0) ic.laps++;
+		if (ic.p == 0) {
+			ic.newlap = true;
+			ic.laps++;
+		}
 
 		ic.startLane = ic.endLane;
-		ic.endLane = clamp(ic.startLane + ic.direction, lanes_dist.size());
+		if (pieces[ic.p].switchable == true) {
+			ic.endLane = clamp(ic.startLane + ic.direction, lanes_dist.size());	
+			ic.direction = 0;
+		}
 	}
 }
 
-int simulation::reset(jsoncons::json& data) {
-	k1 = 0.2;
-	k2 = 0.02;
-	A = 0.5303;
-
+int simulation::set_track(jsoncons::json& data) {
 	lanes_dist.clear();
 	pieces.clear();
 	piecelen.clean();
 	piecerad.clean();
-
+	
 	// building segment data
-	const jsoncons::json& pcs = data["track"]["pieces"];
+	const jsoncons::json& pcs = data["pieces"];
 	for (int i=0; i<pcs.size(); i++) {
 		segment seg;
 		if (pcs[i].has_member("length")) {
@@ -100,7 +97,7 @@ int simulation::reset(jsoncons::json& data) {
 		pieces.push_back(seg);
 	}
 
-	const jsoncons::json& lns = data["track"]["lanes"];
+	const jsoncons::json& lns = data["lanes"];
 	int nlanes = lns.size();
 	for (int j=0; j<nlanes; j++) {
 		for (int k=0; k<nlanes; k++) {
@@ -176,13 +173,15 @@ void simulation::set_empty_car(car &cc) {
 	cc.throttle = 0.0;
 	cc.v = 0.0;
 	cc.w = 0.0;
+	cc.direction = 0;
+	cc.newlap = false;
 }
 
 void simulation::update() {
 	for (auto &cc : cars) {
-		std::cout << "Before " << cc.x << " throttle " << cc.throttle << std::endl;
+		
 		update_one_step(cc);
-		std::cout << "After " << cc.x << std::endl;
+		
 		//if (cc.direction != 0 && pieces[cc.p].switchable == true) {
 		//	cc.direction = 0;
 		//}

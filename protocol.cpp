@@ -18,15 +18,9 @@ namespace hwo_protocol
 		return make_request("ping", jsoncons::null_type());
 	}
 
-	/*jsoncons::json make_join(const std::string& name, const std::string& key)
-	{
-		jsoncons::json data;
-		jsoncons::json botId;
-		botId["name"] = name;
-		botId["key"] = key;
-		data["botId"] = botId;
-		return make_request("joinRace", data);
-	}*/
+	jsoncons::json make_game_start() {
+		return make_request("gameStart", jsoncons::null_type());
+	}
 
 	jsoncons::json make_car_positions(std::vector<simulation::car> &cars) {
 		jsoncons::json data(jsoncons::json::an_array);
@@ -50,6 +44,46 @@ namespace hwo_protocol
 
 	jsoncons::json make_turbo_available() {
 		return make_request("turboAvailable", jsoncons::null_type());
+	}
+
+	jsoncons::json make_crash( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("crash", data);
+	}
+	jsoncons::json make_spawn( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("spawn", data);
+	}
+	jsoncons::json make_turbo_start( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("turboStart", data);
+	}
+	jsoncons::json make_turbo_end( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("turboEnd", data);
+	}
+	jsoncons::json make_lap_finished( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("lapFinished", data);
+	}
+	jsoncons::json make_finish( simulation::car &cc ) {
+		jsoncons::json data;
+		data["name"] = cc.name;
+		data["color"] = cc.color;
+		return make_request("finish", data);
+	}
+	jsoncons::json make_tournament_end() {
+		return make_request("tournamentEnd", jsoncons::null_type());
 	}
 
 }  // namespace hwo_protocol

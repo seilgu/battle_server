@@ -38,9 +38,13 @@ int main(int argc, const char* argv[])
 			if (!input) break;
 
 			if (!strcmp(input, "list")) {
+				
+				hwo_race_manager::Instance().mutex_.lock();
 				for (auto &r : hwo_race_manager::Instance().get_racelist()) {
-					std::cout << "\trace " << (r->get_race_param()).racename << std::endl;
+					std::cout << "\trace " << (r->get_race_param()).trackname << std::endl;
 				}
+				hwo_race_manager::Instance().mutex_.unlock();
+				
 			}
 
 			add_history(input);
