@@ -21,7 +21,7 @@ double simulation::distToCar(car source, car target) {
 	if (source.p == target.p && 
 		source.startLane == target.startLane &&
 		source.endLane == target.endLane && 
-		target.x > source.x) return target.x - source.x;
+		target.x >= source.x) return target.x - source.x;
 
 	// find a path through lanes to the target
 	double dist = -source.x;
@@ -188,7 +188,9 @@ int simulation::find_collison(std::string &srcname, std::string &tgtname) {
 			car &tgt = tc.second;
 			if (src.name == tgt.name) continue;
 
-			if (distToCar(src, tgt) < 0.25*(src.length + tgt.length)) {
+			double dist = distToCar(src, tgt);
+			std::cout << "distance : " << src.name << " -> " << tgt.name << " = " << dist << std::endl;
+			if (dist < 0.25*(src.length + tgt.length)) {
 				srcname = src.name;
 				tgtname = tgt.name;
 				return 1;

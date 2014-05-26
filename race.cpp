@@ -27,18 +27,29 @@ hwo_race::hwo_race( hwo_session_ptr &s )
 	param_.carCount = s->carCount_;
 	param_.raceId = hwo_race::getUniqueId(param_);
 
+
+	racelog_.open( "racelogs/" + param_.raceId + ".log" );
+	if (!racelog_.is_open()) {
+		std::cout << "can't open log file \"" << param_.raceId << ".log\"";
+		race_finished_ = true;
+		return;
+	}
+
 	sessions_.resize(0);
+
 	race_finished_ = false;
 	thread_running_ = false;
 }
 
 hwo_race::~hwo_race() {
+	race_finished_ = true;
 	thread_running_ = false;
 	race_thread_.join();
 
-	// simply clearing it doesn't make use_count to zero
-	for (auto s : sessions_)
-		s->terminate("race ended");
+	racelog_.close();
+
+	// simply clearing it doesn't make use_count to zero, a bug
+	for (auto s : sessions_)	s->terminate("race ended");
 	sessions_.clear();
 }
 std::string hwo_race::getUniqueId(race_param &p) {
@@ -68,7 +79,6 @@ void hwo_race::on_turbo(const jsoncons::json& data, const hwo_session_ptr s) {
 }
 
 void hwo_race::start() {
-
 	// setup track, constants, cars
 	std::string trackfileName = param_.trackname + ".track";
 	std::ifstream trackfile(trackfileName);
@@ -158,6 +168,11 @@ void hwo_race::start() {
 	rs["laps"] = param_.laps;
 	msg_track["data"]["race"]["raceSession"] = rs;
 
+	// so ugly
+	jsoncons::output_format format;
+	format.escape_all_non_ascii(true);
+	msg_track.to_stream(racelog_, format);
+	racelog_ << ',';
 	for (auto s : sessions_) {
 		s->send_response( { msg_track }, error );
 	}
@@ -255,24 +270,27 @@ void hwo_race::run() {
 
 		msgs.push_back( make_car_positions(sim_.cars) );
 
-		std::cout << "ASsdf1" << std::endl;
-
+		jsoncons::output_format format;
+		format.escape_all_non_ascii(true);
+		for (auto &m : msgs) {
+			m.to_stream(racelog_, format);
+			racelog_ << ',';
+		}
 		for (auto s : sessions_) {
 			s->send_response( msgs, errors[s] );
 		}
 
-std::cout << "ASsdf2" << std::endl;
 		for (auto s : sessions_) {
 			if (sim_.cars[s->name_].finishedRace) {
 				s->terminate("");
 			}
 		}
-		std::cout << "ASsdf3" << std::endl;
+
 		for (auto s : sessions_) {
 			auto request = s->receive_request( errors[s] );
 			handle_request(request, s);
 		}
-std::cout << "ASsdf4" << std::endl;
+
 		sim_.update();
 		tick++;
 		hwo_protocol::gameTick = tick;

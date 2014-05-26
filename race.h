@@ -64,6 +64,8 @@ private:
 	simulation sim_;
 
 	int tick;
+
+	std::ofstream racelog_;
 };
 
 
