@@ -56,22 +56,6 @@ void simulation::update_one_step(car& ic) {
 	ic.x += ic.v;
 
 	correct_x(ic);
-	/*double lastDist = piecelen.getLen(ic.p, ic.startLane, ic.endLane);
-	if (ic.x > lastDist) {
-		ic.x -= lastDist;
-		ic.p = (ic.p + 1) % pieces.size();
-		
-		if (ic.p == 0) {
-			ic.newlap = true;
-			ic.laps++;
-		}
-
-		ic.startLane = ic.endLane;
-		if (pieces[ic.p].switchable == true) {
-			ic.endLane = clamp(ic.startLane + ic.direction, lanes_dist.size());	
-			ic.direction = 0;
-		}
-	}*/
 }
 
 int simulation::set_track(jsoncons::json& data) {
@@ -197,14 +181,16 @@ void simulation::correct_x(car &ic) {
 	}
 }
 
-int simulation::find_collison(car &source, car& target) {
-	for (int i=0; i<cars.size(); i++) {
-		for (int j=0; j<cars.size(); j++) {
-			if (i == j) continue;
+int simulation::find_collison(std::string &srcname, std::string &tgtname) {
+	for (auto &sc : cars) {
+		car &src = sc.second;
+		for (auto &tc : cars) {
+			car &tgt = tc.second;
+			if (src.name == tgt.name) continue;
 
-			if (distToCar(cars[i], cars[j]) < 0.25*(cars[i].length + cars[j].length)) {
-				source = cars[i];
-				target = cars[j];
+			if (distToCar(src, tgt) < 0.25*(src.length + tgt.length)) {
+				srcname = src.name;
+				tgtname = tgt.name;
 				return 1;
 			}
 		}
@@ -213,16 +199,19 @@ int simulation::find_collison(car &source, car& target) {
 }
 
 void simulation::resolve_collisons() {
-	car source, target;
-	while ( find_collison(source, target) ) {
-		target.x = source.x + 0.25*(source.length, target.length);
+	std::string srcname, tgtname;
+	while ( find_collison(srcname, tgtname) ) {
+		car &source = cars[srcname];
+		car &target = cars[tgtname];
+		target.x = source.x + 0.25*(source.length + target.length) + 0.000000001;
 		correct_x(target);
 		std::swap(source.v, target.v);
 	}
 }
 
 void simulation::update() {
-	for (auto &cc : cars) {
+	for (auto &pc : cars) {
+		car &cc = pc.second;
 		if (cc.crashing == false && cc.finishedRace == false && cc.dnf == false) {
 			update_one_step(cc);
 		}

@@ -43,7 +43,7 @@ int hwo_race_manager::hwo_session_join(hwo_session_ptr s) {
 }
 
 hwo_race_ptr hwo_race_manager::query_race(const std::string &password) const {
-	for (auto &race : racelist_) {
+	for (auto race : racelist_) {
 		if (race->get_race_param().password == password)
 			return race;
 	}

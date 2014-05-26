@@ -2,6 +2,7 @@
 #define HWO_SIMULATION_H
 
 #include <vector>
+#include <map>
 #include <string>
 #include <cmath>
 
@@ -130,7 +131,8 @@ public:
 
 	int nLanes;
 	std::vector<int> lanes_dist;
-	std::vector<car> cars;
+	//std::vector<car> cars;
+	std::map<std::string, car> cars;
 
 	simulation();
 	~simulation();
@@ -142,7 +144,7 @@ public:
 	double distToCar(car source, car target);
 	static void set_empty_car(car &cc);
 	void correct_x(car &ic);
-	int find_collison(car &source, car& target);
+	int find_collison(std::string &srcname, std::string &tgtname);
 	void resolve_collisons();
 	void update_one_step(car& ic);
 };

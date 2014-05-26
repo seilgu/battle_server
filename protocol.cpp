@@ -25,10 +25,11 @@ namespace hwo_protocol
 		return make_request("gameStart", jsoncons::null_type());
 	}
 
-	jsoncons::json make_car_positions(std::vector<simulation::car> &cars) {
+	jsoncons::json make_car_positions(std::map<std::string, simulation::car> &cars) {
 		jsoncons::json data(jsoncons::json::an_array);
 
-		for (auto &cc : cars) {
+		for (auto &pc : cars) {
+			simulation::car &cc = pc.second;
 			jsoncons::json carjson;
 			carjson["id"] = jsoncons::json();
 			carjson["id"]["name"] = cc.name;

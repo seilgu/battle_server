@@ -50,21 +50,21 @@ void hwo_race::on_ping(const jsoncons::json& data, const hwo_session_ptr s) {}
 void hwo_race::on_throttle(const jsoncons::json& data, const hwo_session_ptr s) {
 	try {
 		double tt = data.as<double>();
-		carmap[s]->throttle = tt;
+		sim_.cars[s->name_].throttle = tt;
 	} catch (const jsoncons::json_exception& e) {
 		std::cout << e.what() << std::endl;
 	}
 }
 void hwo_race::on_switch_lane(const jsoncons::json& data, const hwo_session_ptr s) {
 	try {
-		if (data.as<std::string>() == "Right")		carmap[s]->direction = 1;
-		else if (data.as<std::string>() == "Left")	carmap[s]->direction = -1;
+		if (data.as<std::string>() == "Right")		sim_.cars[s->name_].direction = 1;
+		else if (data.as<std::string>() == "Left")	sim_.cars[s->name_].direction = -1;
 	} catch (const jsoncons::json_exception& e) {
 		std::cout << e.what() << std::endl;
 	}
 }
 void hwo_race::on_turbo(const jsoncons::json& data, const hwo_session_ptr s) {
-	carmap[s]->turboBeginTick = tick + 1;
+	sim_.cars[s->name_].turboBeginTick = tick + 1;
 }
 
 void hwo_race::start() {
@@ -100,15 +100,15 @@ void hwo_race::start() {
 	sim_.cars.clear();
 	std::vector<std::string> colors = { "red", "blue", "yellow", "orange", "purple", "green", 
 		"brown", "pink" };
-	for (auto &s : sessions_) {
+	for (auto s : sessions_) {
 		simulation::car cc;
 		simulation::set_empty_car(cc);
 		cc.name = s->name_;
 		cc.color = colors.back();
 		colors.pop_back();
-		sim_.cars.push_back(cc);
+		//sim_.cars.push_back(cc);
 
-		carmap[s] = &sim_.cars.back();
+		sim_.cars[cc.name] = cc;
 	}
 
 	race_finished_ = false;
@@ -118,8 +118,8 @@ void hwo_race::start() {
 	boost::system::error_code error;
 
 	// yourcar
-	for (auto s : sessions_) {	
-		simulation::car &cc = *carmap[s];
+	for (auto s : sessions_) {
+		simulation::car &cc = sim_.cars[s->name_];
 		jsoncons::json msg_yourcar;
 		msg_yourcar["msgType"] = "yourCar";
 		msg_yourcar["data"] = jsoncons::json();
@@ -136,7 +136,8 @@ void hwo_race::start() {
 	msg_track["data"]["race"]["track"] = trackjson;
 
 	jsoncons::json carjson(jsoncons::json::an_array);
-	for (auto &cc : sim_.cars) {
+	for (auto &pc : sim_.cars) {
+		simulation::car &cc = pc.second;
 		jsoncons::json cj;
 		
 		jsoncons::json idjson;
@@ -157,7 +158,7 @@ void hwo_race::start() {
 	rs["laps"] = param_.laps;
 	msg_track["data"]["race"]["raceSession"] = rs;
 
-	for (auto &s : sessions_) {
+	for (auto s : sessions_) {
 		s->send_response( { msg_track }, error );
 	}
 
@@ -174,7 +175,7 @@ void hwo_race::run() {
 	{
 		hwo_protocol::gameTick = tick;
 		jsoncons::json game_start = make_game_start();
-		for (auto &s : sessions_) {
+		for (auto s : sessions_) {
 			s->send_response( { game_start } , errors[s] );
 			auto request = s->receive_request( errors[s] );
 		}
@@ -197,8 +198,8 @@ void hwo_race::run() {
 		}
 
 		// who crashed
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.crashing == false && fabs(cc.angle) > 60.0) {
 				cc.crashing = true;
 				cc.lastCrashedTick = tick;
@@ -210,24 +211,24 @@ void hwo_race::run() {
 			}
 		}
 		// who spawned
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.crashing == true && tick - cc.lastCrashedTick > param_.crashDurationTicks) {
 				cc.crashing = false;
 				msgs.push_back( make_spawn(cc) );
 			}
 		}
 		// who turboStart
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.turboBeginTick == tick) {
 				cc.onTurbo = true;
 				msgs.push_back( make_turbo_start(cc) );
 			}
 		}
 		// who turboEnd
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.onTurbo == true && tick - cc.turboBeginTick > param_.turboDurationTicks) {
 				cc.onTurbo = false;
 				msgs.push_back( make_turbo_end(cc) );
@@ -235,8 +236,8 @@ void hwo_race::run() {
 		}
 
 		// lapfinished
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.newlap == true) {
 				cc.newlap = false;
 				msgs.push_back( make_lap_finished(cc) );
@@ -244,8 +245,8 @@ void hwo_race::run() {
 		}
 
 		// racefinished
-		for (auto s : sessions_) {
-			simulation::car &cc = *carmap[s];
+		for (auto &pc : sim_.cars) {
+			simulation::car &cc = pc.second;
 			if (cc.laps >= param_.laps) {
 				cc.finishedRace = true;
 				msgs.push_back( make_finish(cc) );
@@ -254,21 +255,24 @@ void hwo_race::run() {
 
 		msgs.push_back( make_car_positions(sim_.cars) );
 
+		std::cout << "ASsdf1" << std::endl;
+
 		for (auto s : sessions_) {
 			s->send_response( msgs, errors[s] );
 		}
 
+std::cout << "ASsdf2" << std::endl;
 		for (auto s : sessions_) {
-			if (carmap[s]->finishedRace) {
+			if (sim_.cars[s->name_].finishedRace) {
 				s->terminate("");
 			}
 		}
-		
+		std::cout << "ASsdf3" << std::endl;
 		for (auto s : sessions_) {
 			auto request = s->receive_request( errors[s] );
 			handle_request(request, s);
 		}
-
+std::cout << "ASsdf4" << std::endl;
 		sim_.update();
 		tick++;
 		hwo_protocol::gameTick = tick;
