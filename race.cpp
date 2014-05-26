@@ -27,7 +27,7 @@ hwo_race::hwo_race( hwo_session_ptr &s )
 	param_.carCount = s->carCount_;
 	param_.raceId = hwo_race::getUniqueId(param_);
 
-
+	// todo : make a logger class
 	racelog_.open( "racelogs/" + param_.raceId + ".log" );
 	if (!racelog_.is_open()) {
 		std::cout << "can't open log file \"" << param_.raceId << ".log\"";
@@ -78,51 +78,56 @@ void hwo_race::on_turbo(const jsoncons::json& data, const hwo_session_ptr s) {
 	sim_.cars[s->name_].turboBeginTick = tick + 1;
 }
 
+int hwo_race::load_track( std::string trackname, jsoncons::json &js ) {
+	std::string trackfn = trackname + ".track";
+	std::ifstream trackfile(trackfn);
+	if (!trackfile.is_open()) {	return 0; }
+	js = jsoncons::json::parse(trackfile);
+	trackfile.close();
+	return 1;
+}
+
 void hwo_race::start() {
 	// setup track, constants, cars
-	std::string trackfileName = param_.trackname + ".track";
-	std::ifstream trackfile(trackfileName);
-	if (!trackfile.is_open()) {
-		std::cout << "can't open track file \"" << trackfileName << "\"";
+	jsoncons::json trackjson;
+	if (load_track( param_.trackname, trackjson ) == 0) {
+		std::cout << "can't open track \"" << param_.trackname << "\"";
 		race_finished_ = true;
 		return;
 	}
-	jsoncons::json trackjson = jsoncons::json::parse(trackfile);
-	trackfile.close();
 
-	sim_.set_track(trackjson);
-
-	sim_.k1 = 0.2;
-	sim_.k2 = 0.02;
-	sim_.A = 0.5303;
-
-	sim_.turboFactor = 3.0;
+	// parameter setup, ideally from config file
 	param_.turboDurationTicks = 30;
 	param_.crashDurationTicks = 5;
-
 	param_.laps = 5;
-
 	param_.turboAvailableTicks.clear();
 	param_.turboAvailableTicks.push_back(600);
 	param_.turboAvailableTicks.push_back(1200);
 	param_.turboAvailableTicks.push_back(1800);
 
+	// simulation setup
+	sim_.set_track(trackjson);
+
+	sim_.k1 = 0.2;
+	sim_.k2 = 0.02;
+	sim_.A = 0.5303;
+	sim_.turboFactor = 3.0;
+
 	sim_.cars.clear();
-	std::vector<std::string> colors = { "red", "blue", "yellow", "orange", "purple", "green", 
-		"brown", "pink" };
+	std::vector<std::string> colors = { "red", "blue", "yellow", "orange", 
+										"purple", "green", "brown", "pink" };
 	for (auto s : sessions_) {
 		simulation::car cc;
 		simulation::set_empty_car(cc);
 		cc.name = s->name_;
 		cc.color = colors.back();
 		colors.pop_back();
-		//sim_.cars.push_back(cc);
 
 		sim_.cars[cc.name] = cc;
 	}
 
+	// prepare for race
 	race_finished_ = false;
-
 	tick = 0;
 
 	boost::system::error_code error;
@@ -168,25 +173,27 @@ void hwo_race::start() {
 	rs["laps"] = param_.laps;
 	msg_track["data"]["race"]["raceSession"] = rs;
 
-	// so ugly
-	jsoncons::output_format format;
-	format.escape_all_non_ascii(true);
-	msg_track.to_stream(racelog_, format);
-	racelog_ << ',';
 	for (auto s : sessions_) {
 		s->send_response( { msg_track }, error );
 	}
 
+	// todo: make logger class
+	jsoncons::output_format format;
+	format.escape_all_non_ascii(true);
+	msg_track.to_stream(racelog_, format);
+	racelog_ << ',';
+	
+	// start thread
 	thread_running_ = true;
 	race_thread_ = boost::thread(&hwo_race::run, this);
 }
 
-//extern int hwo_protocol::gameTick;
 void hwo_race::run() {
 	
 	std::map<hwo_session_ptr, boost::system::error_code> errors;
 	for (auto &s : sessions_) 	errors[s] = boost::system::error_code();
 
+	// send gamestart
 	{
 		hwo_protocol::gameTick = tick;
 		jsoncons::json game_start = make_game_start();
@@ -236,7 +243,7 @@ void hwo_race::run() {
 		// who turboStart
 		for (auto &pc : sim_.cars) {
 			simulation::car &cc = pc.second;
-			if (cc.turboBeginTick == tick) {
+			if (cc.onTurbo == false && cc.turboBeginTick == tick) {
 				cc.onTurbo = true;
 				msgs.push_back( make_turbo_start(cc) );
 			}
@@ -270,14 +277,16 @@ void hwo_race::run() {
 
 		msgs.push_back( make_car_positions(sim_.cars) );
 
+		for (auto s : sessions_) {
+			s->send_response( msgs, errors[s] );
+		}
+
+		// todo: add to logger class
 		jsoncons::output_format format;
 		format.escape_all_non_ascii(true);
 		for (auto &m : msgs) {
 			m.to_stream(racelog_, format);
 			racelog_ << ',';
-		}
-		for (auto s : sessions_) {
-			s->send_response( msgs, errors[s] );
 		}
 
 		for (auto s : sessions_) {
@@ -331,7 +340,7 @@ bool hwo_race::race_finished() const {
 	return race_finished_;
 }
 
-int hwo_race::join(hwo_session_ptr session) {
+int hwo_race::add_session(hwo_session_ptr session) {
 
 	if ( session->carCount_ != param_.carCount ) {
 		session->terminate("numPlayers does not match");
@@ -340,7 +349,7 @@ int hwo_race::join(hwo_session_ptr session) {
 		session->terminate("race already full");
 		return 0;
 	} else if ( session->password_ != param_.password ){
-		session->terminate("key incorrect");
+		session->terminate("password incorrect");
 		return 0;
 	}
 
@@ -356,12 +365,14 @@ int hwo_race::join(hwo_session_ptr session) {
 	return 1;
 }
 
-// todo : for request result not immediate, need event queue
 void hwo_race::handle_request(jsoncons::json &request, hwo_session_ptr session) {
 	if (!request.has_member("msgType") || !request.has_member("data")) return;
 
+	if (request.has_member("gameTick") && request["gameTick"].as<int>() != tick) return;
+	
 	const auto& msg_type = request["msgType"].as<std::string>();
 	const jsoncons::json& data = request["data"];
+
 	auto action_it = action_map.find(msg_type);
 
 	if (action_it != action_map.end()) {

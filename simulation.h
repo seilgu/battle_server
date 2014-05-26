@@ -93,13 +93,13 @@ public:
 
 
 	struct car {
-		bool crashing = false;
-		bool onTurbo = false;
-		bool dnf = false;
-		int lastCrashedTick = -1000;
-		bool finishedRace = false;
-		double turboBeginTick = -1000;
-		int turboAvailable = 0;
+		bool crashing;
+		bool onTurbo;
+		bool dnf;
+		int lastCrashedTick;
+		bool finishedRace;
+		double turboBeginTick;
+		int turboAvailable;
 
 		double length, width;
 		int p;
@@ -129,9 +129,7 @@ public:
 
 	double turboFactor;
 
-	int nLanes;
 	std::vector<int> lanes_dist;
-	//std::vector<car> cars;
 	std::map<std::string, car> cars;
 
 	simulation();
@@ -140,7 +138,6 @@ public:
 	int set_track(jsoncons::json& data);
 	void update();
 
-	car &getcar(std::string);
 	double distToCar(car source, car target);
 	static void set_empty_car(car &cc);
 	void correct_x(car &ic);

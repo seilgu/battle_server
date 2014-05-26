@@ -55,14 +55,14 @@ hwo_race_ptr hwo_race_manager::set_up_race(hwo_session_ptr s) {
 	if ( s->wait_for_join() ) {
 		hwo_race_ptr qrace = query_race( s->password_ );
 		if ( qrace != nullptr ) {
-			if (qrace->join(s))		return qrace;
+			if (qrace->add_session(s))		return qrace;
 			else					return nullptr;
 
 		} else {
 			std::cout << "creating new race" << std::endl;
 
 			hwo_race_ptr nrace( new hwo_race(s) );
-			nrace->join( s );
+			nrace->add_session( s );
 			racelist_.push_back( nrace );
 			return nrace;
 		}

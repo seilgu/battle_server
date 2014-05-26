@@ -30,17 +30,18 @@ public:
 	hwo_race( hwo_session_ptr &s );
 	~hwo_race();
 
-	static std::string getUniqueId(race_param &param);
+	static std::string getUniqueId(race_param &param);	// todo : make it private
 
 	void start();
 	void run();
 	void end();
 
-	int join(hwo_session_ptr session);
+	int add_session(hwo_session_ptr session);
 	race_param get_race_param() const;
 	int nPlayers() const;
 	bool race_finished() const;
 
+	int load_track( std::string trackname, jsoncons::json &js );
 	void handle_request(jsoncons::json &request, hwo_session_ptr session);
 
 	void on_ping(const jsoncons::json& data, const hwo_session_ptr s);
@@ -53,7 +54,6 @@ private:
 	const std::map<std::string, action_fun> action_map;
 
 	std::list<hwo_session_ptr> sessions_;
-	//std::map<hwo_session_ptr, simulation::car*> carmap;
 
 	boost::thread race_thread_;
 	bool thread_running_;
