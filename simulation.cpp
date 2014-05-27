@@ -184,12 +184,13 @@ void simulation::correct_x(car &ic) {
 int simulation::find_collison(std::string &srcname, std::string &tgtname) {
 	for (auto &sc : cars) {
 		car &src = sc.second;
+		if (src.crashing == false && src.finishedRace == false && src.dnf == false) continue;
 		for (auto &tc : cars) {
 			car &tgt = tc.second;
+			if (tgt.crashing == false && tgt.finishedRace == false && tgt.dnf == false) continue;
 			if (src.name == tgt.name) continue;
 
 			double dist = distToCar(src, tgt);
-			std::cout << "distance : " << src.name << " -> " << tgt.name << " = " << dist << std::endl;
 			if (dist < 0.25*(src.length + tgt.length)) {
 				srcname = src.name;
 				tgtname = tgt.name;

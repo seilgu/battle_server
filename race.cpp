@@ -290,12 +290,6 @@ void hwo_race::run() {
 		}
 
 		for (auto s : sessions_) {
-			if (sim_.cars[s->name_].finishedRace) {
-				s->terminate("");
-			}
-		}
-
-		for (auto s : sessions_) {
 			auto request = s->receive_request( errors[s] );
 			handle_request(request, s);
 		}
@@ -315,7 +309,21 @@ void hwo_race::run() {
 			}
 		}
 
-		if (keep_running == false) break;
+		bool tournament_end = true;
+		for (auto s : sessions_) {
+			if (sim_.cars[s->name_].finishedRace == false) {
+				tournament_end = false;
+				break;
+			}
+		}
+		if (tournament_end) {
+			for (auto s : sessions_) {
+				s->send_response( { make_tournament_end() }, errors[s] );
+				s->terminate("");
+			}
+		}
+
+		if (keep_running == false || tournament_end == true) break;
 
 	}
 
